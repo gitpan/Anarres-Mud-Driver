@@ -137,7 +137,7 @@ NONNUMBER		[[:digit:]]{CHAR}+
 
 \.\.\.				{ return L_ELLIPSIS; }
 
-[\+-/\*%&\|<>\^~\?\.\{\},;:\(\)\[\]!=\$]	{ return *yytext; }
+[\+-/\*#%&\|<>\^~\?\.\{\},;:\(\)\[\]!=\$]	{ return *yytext; }
 
 		/* Strays */
 

@@ -14,6 +14,8 @@ use Exporter;
 sub new {
 	my $class = shift;
 	my $self = ($#_ == 0) ? { %{ (shift) } } : { @_ };
+	# Avoid some 'undefined value' warnings late.
+	$self->{Flags} = 0 unless exists $self->{Flags};
 	die "No type when creating $class\n" unless $self->{Type};
 	return bless $self, $class;
 }

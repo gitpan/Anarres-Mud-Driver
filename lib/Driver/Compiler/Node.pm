@@ -3,18 +3,13 @@ package Anarres::Mud::Driver::Compiler::Node;
 # A lot of things throw code into this package's namespace.
 
 use strict;
-use vars qw(@ISA @EXPORT_OK %EXPORT_TAGS
-				@NODETYPES
-				$DEBUG
-				);
+use vars qw(@ISA @EXPORT_OK %EXPORT_TAGS @NODETYPES);
 use Exporter;
-
-sub DBG_TC_NAME		() { 1 }
-sub DBG_TC_ALIAS	() { 2 }
+use Carp qw(confess);
 
 BEGIN {	# Does this still have to be a BEGIN?
 	@ISA = qw(Exporter);
-	@EXPORT_OK = qw(@NODETYPES DBG_TC_NAME DBG_TC_ALIAS);
+	@EXPORT_OK = qw(@NODETYPES);
 	%EXPORT_TAGS = (
 		all		=> \@EXPORT_OK,
 			);
@@ -33,6 +28,7 @@ BEGIN {	# Does this still have to be a BEGIN?
 		ExpComma
 
 		IntAssert StrAssert ArrAssert MapAssert ClsAssert ObjAssert
+		ToString
 
 		Nil String Integer Array Mapping Closure
 		Variable Parameter Funcall CallOther
@@ -42,13 +38,11 @@ BEGIN {	# Does this still have to be a BEGIN?
 		Index Range Member New
 
 		Postinc Postdec Preinc Predec Unot Tilde Plus Minus
-		Lsh Rsh Add Sub Mul Div Mod
-		Eq Ne Lt Gt Le Ge
-		Or And Xor
 
-		IntAdd IntSub IntMul IntDiv IntMod IntLsh IntRsh
-		IntEq IntNe IntLt IntGt IntLe IntGe
-		IntOr IntAnd IntXor
+
+		Eq Ne Lt Gt Le Ge
+		Lsh Rsh Add Sub Mul Div Mod
+		Or And Xor
 		LogOr LogAnd
 
 		AddEq SubEq DivEq MulEq ModEq
@@ -56,31 +50,40 @@ BEGIN {	# Does this still have to be a BEGIN?
 		LshEq RshEq
 		LogOrEq LogAndEq
 
-		IntAddEq IntSubEq IntMulEq IntDivEq IntModEq
+
+		IntEq IntNe IntLt IntGt IntLe IntGe
+		IntAdd IntSub IntMul IntDiv IntMod IntLsh IntRsh
+		IntOr IntAnd IntXor
+
 		IntAndEq IntOrEq IntXorEq
+		IntAddEq IntSubEq IntMulEq IntDivEq IntModEq
 		IntLshEq IntRshEq
 
+
 		StrAdd        StrMul
-		StrEq StrNe StrLt StrGt StrLe StrGe
 		StrIndex StrRange
+		StrEq StrNe StrLt StrGt StrLe StrGe
 
 		StrAddEq      StrMulEq
 
-		ArrAdd ArrSub
 		ArrEq ArrNe
-		ArrUnion ArrIsect
+		ArrAdd ArrSub
+		ArrOr ArrAnd
 		ArrIndex ArrRange
 
-		MapAdd
 		MapEq MapNe
+		MapAdd
 		MapIndex
+
+		ObjEq ObjNe
 
 		Catch Sscanf
 
 		ExpCond Assign Block StmtExp
-		StmtDo StmtWhile StmtFor StmtForeach
+		StmtDo StmtWhile StmtFor
+		StmtForeach StmtForeachArr StmtForeachMap
 		StmtRlimits StmtTry StmtCatch
-		StmtIf StmtIfElse StmtSwitch StmtCase StmtDefault
+		StmtIf StmtSwitch StmtCase StmtDefault
 		StmtBreak StmtContinue StmtReturn
 			);
 
@@ -94,15 +97,12 @@ BEGIN {	# Does this still have to be a BEGIN?
 			use Carp qw(:DEFAULT cluck);
 			use Data::Dumper;
 			use Anarres::Mud::Driver::Compiler::Node qw(:all);
-			use Anarres::Mud::Driver::Compiler::Type;
+			use Anarres::Mud::Driver::Compiler::Type qw(:all);
 			\@ISA = qw(Anarres::Mud::Driver::Compiler::Node);
 			sub accept { return \$_[1]->$visit(\$_[0]); }	# Visitors
 		}; die $@ if $@;
 	}
 }
-
-$DEBUG = DBG_TC_NAME;
-$DEBUG = 0;
 
 # Now that we have set up the Node packages, we can do this:
 
@@ -133,10 +133,17 @@ sub values	{ @{$_[0]}[2..$#{$_[0]}] }
 sub setflag	{ $_[0]->[1] |= $_[1] }
 sub flags	{ $_[0]->[1] }
 
-sub debug {
-	my ($self, $class, $msg) = @_;
-	return undef unless $DEBUG & $class;
-	print STDERR "Debug: $msg\n";
+sub opcode {
+	(my $name = (ref($_[0]) || $_[0])) =~ s/.*:://;
+	return $name;
+}
+
+sub setopcode {
+	my ($self, $newopcode) = @_;
+	my $class = ref($self);
+	$class =~ s/[^:]+$/$newopcode/;
+	bless $self, $class;
+	return 1;
 }
 
 1;

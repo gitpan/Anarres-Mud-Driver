@@ -1315,7 +1315,8 @@ local_decl
 		}
 	;
 
-	/* The type_modifier_list is to avoid a s-r conflict */
+	/* The type_modifier_list is expected to be empty but
+	 * avoids a shift-reduce conflict at top level. */
 type_decl
 		: type_modifier_list L_CLASS identifier
 				'{' class_member_list '}'
@@ -1343,7 +1344,7 @@ class_member_list
 				sv = *( av_fetch($2, i, FALSE) );
 				av_push($1, sv);
 			}
-		 	/* XXX Lose the array! */
+		 	/* XXX Lose ((AV)($2))! */
 			$$ = $1;
 		}
 	;

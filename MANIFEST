@@ -5,7 +5,10 @@ Compiler/Compiler.xs
 Compiler/Makefile.PL
 Compiler/compiler.h
 Compiler/junk
+Compiler/lexer.c
 Compiler/lexer.yy
+Compiler/parser.c
+Compiler/parser.h
 Compiler/parser.y
 Compiler/symchange.pl
 Compiler/typemap
@@ -21,6 +24,7 @@ MANIFEST
 MANIFEST.SKIP
 Makefile.PL
 README
+TODO
 Type/.depend
 Type/Makefile.PL
 Type/Type.pm

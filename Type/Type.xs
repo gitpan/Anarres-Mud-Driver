@@ -7,25 +7,14 @@
 
 typedef char *Anarres__Mud__Driver__Compiler__Type;
 
-HV			*amd_typecache;
+static HV			*amd_typecache;
 
-#define define_T_(x) static const char	T_## x[]	= { C_ ## x, 0 }
-
-// define_T_(VOID);
-// define_T_(NIL);
-define_T_(UNKNOWN);
-// define_T_(BOOL);
-// define_T_(CLOSURE);
-define_T_(INTEGER);
-// define_T_(OBJECT);
-// define_T_(STRING);
-// define_T_(M_ARRAY);
-// define_T_(M_MAPPING);
-// define_T_(FAILED);
-
+	/* These are used as strings and must be allocated. */
+static const char T_UNKNOWN[]	= { C_UNKNOWN, 0 };
+static const char T_INTEGER[]	= { C_INTEGER, 0 };
 static const char T_ARRAY[]	= { C_M_ARRAY, C_UNKNOWN, 0 };
 static const char T_MAPPING[]	= { C_M_MAPPING, C_UNKNOWN, 0 };
-static const char T_M_ENDCLASS[] = { C_M_ENDCLASS, 0 };
+static const char T_M_CLASS_END[] = { C_M_CLASS_END, 0 };
 
 SV *
 amd_type_new(const char *str)
@@ -51,18 +40,18 @@ amd_type_new(const char *str)
 	return bsv;
 }
 
-#define TYPE_CS(x) do { code[0] = C_ ## x; \
+#define EXPORT_TYPE(x) do { code[0] = C_ ## x; \
 			sv = amd_type_new(code); \
 			newCONSTSUB(stash, "T_" #x, sv); \
 			av_push(export, newSVpv("T_" #x, strlen(#x) + 2)); \
 				} while(0)
 
-#define STR_CS(x) do { code[0] = C_ ## x; \
+#define EXPORT_TYPE_MODIFIER(x) do { code[0] = C_ ## x; \
 			newCONSTSUB(stash, "T_" #x, newSVpvn(code, 1)); \
 			av_push(export, newSVpv("T_" #x, strlen(#x) + 2)); \
 				} while(0)
 
-#define VAR_CS(x) do { \
+#define EXPORT_MODIFIER(x) do { \
 			newCONSTSUB(stash, #x, newSViv(x)); \
 			av_push(export, newSVpv(#x, strlen(#x))); \
 				} while(0)
@@ -86,19 +75,19 @@ BOOT:
 		// fprintf(stderr, _AMD "::Compiler::Type: Building %%CACHE\n");
 
 		stash = gv_stashpv(_AMD "::Compiler::Type", TRUE);
-		export = get_av(_AMD "::Compiler::Type::EXPORT", TRUE);
+		export = get_av(_AMD "::Compiler::Type::EXPORT_OK", TRUE);
 		code[1] = '\0';
 
-		TYPE_CS(VOID);
-		TYPE_CS(NIL);
-		TYPE_CS(UNKNOWN);
-		TYPE_CS(BOOL);
-		TYPE_CS(CLOSURE);
-		TYPE_CS(INTEGER);
-		TYPE_CS(OBJECT);
-		TYPE_CS(STRING);
+		EXPORT_TYPE(VOID);
+		EXPORT_TYPE(NIL);
+		EXPORT_TYPE(UNKNOWN);
+		EXPORT_TYPE(BOOL);
+		EXPORT_TYPE(CLOSURE);
+		EXPORT_TYPE(INTEGER);
+		EXPORT_TYPE(OBJECT);
+		EXPORT_TYPE(STRING);
 
-		TYPE_CS(FAILED);
+		EXPORT_TYPE(FAILED);
 
 		sv = amd_type_new(T_ARRAY);
 		newCONSTSUB(stash, "T_ARRAY", sv);
@@ -108,10 +97,11 @@ BOOT:
 		newCONSTSUB(stash, "T_MAPPING", sv);
 		av_push(export, newSVpv("T_MAPPING", strlen("T_MAPPING")));
 
-		STR_CS(M_ARRAY);
-		STR_CS(M_MAPPING);
-		STR_CS(M_BEGINCLASS);
-		STR_CS(M_ENDCLASS);
+		EXPORT_TYPE_MODIFIER(M_ARRAY);
+		EXPORT_TYPE_MODIFIER(M_MAPPING);
+		EXPORT_TYPE_MODIFIER(M_CLASS_BEGIN);
+		EXPORT_TYPE_MODIFIER(M_CLASS_MID);
+		EXPORT_TYPE_MODIFIER(M_CLASS_END);
 
 	}
 	
@@ -120,21 +110,21 @@ BOOT:
 		AV	*export;
 
 		stash = gv_stashpv(_AMD "::Compiler::Type", TRUE);
-		export = get_av(_AMD "::Compiler::Type::EXPORT", TRUE);
+		export = get_av(_AMD "::Compiler::Type::EXPORT_OK", TRUE);
 
-		VAR_CS(M_NOMASK);
-		VAR_CS(M_NOSAVE);
-		VAR_CS(M_STATIC);
-		VAR_CS(M_PRIVATE);
-		VAR_CS(M_PROTECTED);
-		VAR_CS(M_PUBLIC);
-		VAR_CS(M_VARARGS);
-		VAR_CS(M_EFUN);
-		VAR_CS(M_APPLY);
-		VAR_CS(M_INHERITED);
-		VAR_CS(M_HIDDEN);
-		VAR_CS(M_UNKNOWN);
-		VAR_CS(M_PURE);
+		EXPORT_MODIFIER(M_NOMASK);
+		EXPORT_MODIFIER(M_NOSAVE);
+		EXPORT_MODIFIER(M_STATIC);
+		EXPORT_MODIFIER(M_PRIVATE);
+		EXPORT_MODIFIER(M_PROTECTED);
+		EXPORT_MODIFIER(M_PUBLIC);
+		EXPORT_MODIFIER(M_VARARGS);
+		EXPORT_MODIFIER(M_EFUN);
+		EXPORT_MODIFIER(M_APPLY);
+		EXPORT_MODIFIER(M_INHERITED);
+		EXPORT_MODIFIER(M_HIDDEN);
+		EXPORT_MODIFIER(M_UNKNOWN);
+		EXPORT_MODIFIER(M_PURE);
 	}
 }
 
@@ -146,8 +136,8 @@ new(self, code)
 	char *	code
 	CODE:
 		RETVAL = amd_type_new(code);
-		/* This is automatically mortalised, which isn't strictly
-		 * necessary since we know that we always have a ref to it. */
+		/* This is automatically mortalised.
+		 * We always have a ref to it through the hash anyway. */
 		SvREFCNT_inc(RETVAL);
 	OUTPUT:
 		RETVAL
@@ -159,9 +149,13 @@ compatible(self, arg)
 	CODE:
 		{
 			/* This actually returns a boolean */
+			/* Can we assign type 'self' to type 'arg'? */
 
 			if (!*arg)
 				croak("arg is not a valid type: it is empty");
+
+			/* TODO: Make two compatible classes with different
+			 * names be compatible. */
 
 			while (*self) {
 				if (*arg == *self) {
@@ -181,24 +175,6 @@ compatible(self, arg)
 					/* We can assign a BOOL to INTEGER */
 					XSRETURN_YES;
 				}
-#if 0
-				/* Don't use this if we have class naming: Everything
-				 * breaks. */
-				else if (*self == C_M_ENDCLASS) {
-					int	 depth;
-					/* We can just drop the rest of the input data */
-					self++;
-					arg++;
-					depth = 1;
-					while (depth > 0) {
-						if (*arg == C_M_ENDCLASS)
-							depth--;
-						else if (*arg == C_M_BEGINCLASS)
-							depth++;
-						arg++;
-					}
-				}
-#endif
 				else {	/* Including !*arg, which should never happen */
 					XSRETURN_NO;
 				}
@@ -222,35 +198,37 @@ unify(self, arg)
 	Anarres::Mud::Driver::Compiler::Type	arg
 	CODE:
 		{
-			int		 len;
 			SV		*out;
-			int		 depth;
+			int		 len;
+			int		 i;
 			char	 incomplete;
 
-			len = 0;
-			depth = 0;
 			incomplete = 1;	/* We haven't got anything yet */
-			while (self[len]) {
+			for (len = 0; self[len]; len++) {
 				if (self[len] != arg[len])
 					break;
-				if (self[len] == C_M_BEGINCLASS)
-					depth++;
-				else if (self[len] == C_M_ENDCLASS)
-					{ depth--; incomplete = 0; }
 				else if (self[len] == C_M_MAPPING)
 					incomplete = 1;
 				else if (self[len] == C_M_ARRAY)
 					incomplete = 1;
+				else if (self[len] == C_M_CLASS_BEGIN) {
+					/* XXX Really, if the two classes are strictly
+					 * compatible, either one will do. */
+					for (i = len + 1; self[i]; i++) {
+						if (self[i] != arg[i]) {
+							incomplete = 1;
+							goto unify_endloop;
+						}
+					}
+					len = i;
+					incomplete = 0;
+				}
 				else
 					incomplete = 0;
-				len++;
 			}
+unify_endloop:
 
 			/* Now we have to exploit that information. */
-			/* XXX I'm not at all sure that the use of 'incomplete'
-			 * is bug free; we might need a couple of extra cases
-			 * in this conditional to deal with entering and leaving
-			 * classes. */
 
 			if (!self[len]) {
 				/* The two types were equal. */
@@ -268,17 +246,13 @@ unify(self, arg)
 					(self[len] == C_BOOL || self[len] == C_INTEGER)) {
 				out = newSVpvn(self, len);
 				sv_catpvn(out, T_INTEGER, strlen(T_INTEGER));
-				/* We might still be in a class. */
-				while (depth--)
-					sv_catpvn(out, T_M_ENDCLASS, 1);
+			}
+			else if (incomplete) {
+				out = newSVpvn(self, len);
+				sv_catpvn(out, T_UNKNOWN, strlen(T_UNKNOWN));
 			}
 			else {
 				out = newSVpvn(self, len);
-				/* If the last matched character was { } * or # */
-				if (incomplete)
-					sv_catpvn(out, T_UNKNOWN, strlen(T_UNKNOWN));
-				while (depth--)
-					sv_catpvn(out, T_M_ENDCLASS, 1);
 			}
 
 			RETVAL = amd_type_new(SvPV_nolen(out));

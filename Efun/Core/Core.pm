@@ -6,7 +6,7 @@ use vars qw($VERSION @ISA);
 
 # XXX Where should I be requiring these: before or after bootstrap?
 
-use Anarres::Mud::Driver::Compiler::Type;
+use Anarres::Mud::Driver::Compiler::Type qw(:all);	# We do this twice?!
 
 # Efuns need to be normal functions in a program symbol table but
 # will not inherit or issue a warning if redefined.
@@ -26,7 +26,7 @@ $VERSION = 0.10;
 
 bootstrap Anarres::Mud::Driver::Efun::Core;
 
-use Anarres::Mud::Driver::Compiler::Type;
+use Anarres::Mud::Driver::Compiler::Type qw(:all);	# We do this twice?!
 use Anarres::Mud::Driver::Program::Efun qw(register);
 use Anarres::Mud::Driver::Program::Method;
 
@@ -357,7 +357,7 @@ use Anarres::Mud::Driver::Program::Method;
 
 {
 	package Anarres::Mud::Driver::Efun::Core::map;
-	use Anarres::Mud::Driver::Compiler::Type;
+	use Anarres::Mud::Driver::Compiler::Type qw(:all);
 	sub typecheck_call {
 		my ($self, $program, $values, @rest) = @_;
 		my $val = $values->[1];

@@ -7,7 +7,7 @@ use Carp;
 use Exporter;
 use Anarres::Mud::Driver::Program::Variable;
 use Anarres::Mud::Driver::Program::Method;
-use Anarres::Mud::Driver::Compiler::Type;
+use Anarres::Mud::Driver::Compiler::Type qw(:all);
 
 @ISA = qw(Anarres::Mud::Driver::Program::Method);
 @EXPORT_OK = qw(register efuns efunflags);

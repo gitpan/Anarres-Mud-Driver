@@ -19,10 +19,11 @@ WriteMakefile(
 	# OPTIMIZE		=> '-O2 -g -Wall',
 
 	clean			=> {
-				FILES	=> "lex.yy.c lexer.c " .
-							"parser.output parser.tab.[ch] " .
-							"parser.[ch]",
+				FILES	=> "lex.yy.c " .
+							"parser.output parser.tab.[ch] ",
 						},
+	# Removed lexer.c, parser.[ch] from clean because I should
+	# distribute them for people who don't have lex.
 );
 
 sub MY::postamble {

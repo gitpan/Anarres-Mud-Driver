@@ -5,7 +5,7 @@ use vars qw(@ISA @EXPORT);
 use Data::Dumper;
 use Carp qw(cluck);
 use Anarres::Mud::Driver::Program::Variable;
-use Anarres::Mud::Driver::Compiler::Type;
+use Anarres::Mud::Driver::Compiler::Type qw(:all);
 
 @ISA = qw(Anarres::Mud::Driver::Program::Variable);
 *EXPORT = \@Anarres::Mud::Driver::Program::Variable::EXPORT;
@@ -129,8 +129,8 @@ sub typecheck_call {
 		my $arg = $val->promote($decl->type);
 		if (! $arg) {
 			$program->error("Argument $i to " . $self->name .
-							" is type " . ${ $val->type } .
-							" not type " . ${ $decl->type });
+							" is type " . $val->type->name .
+							" not type " . $decl->type->name);
 		}
 		elsif ($arg != $val) {
 			$arg->check($program, undef, @rest);
@@ -150,6 +150,11 @@ sub typecheck_call {
 sub generate_call {
 	my ($self, @args) = @_;
 	return '$self->_M_' . $self->name . "(" . join(", ", @args) .")";
+}
+
+sub proto {
+	my ($self) = @_;
+	return $self->type->deparse . " " . $self->name . "(...)";
 }
 
 1;

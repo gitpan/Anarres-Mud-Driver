@@ -7,10 +7,13 @@ use Carp qw(:DEFAULT cluck);
 use Data::Dumper;
 use File::Basename;
 use String::Escape qw(quote printable);
-use Anarres::Mud::Driver::Compiler::Type;
+use Anarres::Mud::Driver::Compiler::Type qw(:all);
 use Anarres::Mud::Driver::Program::Variable;
 use Anarres::Mud::Driver::Program::Method;
 use Anarres::Mud::Driver::Program::Efun qw(efuns efunflags);
+
+# This object is big and the 'context'-related stuff and possibly the
+# 'generate'-related stuff could be split out.
 
 @ISA = qw(Exporter);
 	# Oddly enough, the PERL_* tags here must be in order.
@@ -66,8 +69,7 @@ sub new {
 
 	$self->{Closures} = [ ];
 
-	$self->{ClassesByName} = { };
-	$self->{ClassesByType} = { };
+	$self->{Classes} = { };
 
 	return bless $self, $class;
 }
@@ -80,7 +82,8 @@ sub path_to_package {
 	my $path = shift;
 	$path =~ s,/,::,g;
 	$path =~ s/\.c$//;
-	return "Anarres::Mud::Library" . $path;
+	$path =~ s,^/*,,;
+	return "Anarres::Mud::Library::" . $path;
 }
 
 sub package_to_path {
@@ -143,8 +146,8 @@ sub reset_labels {
 	print "Label stack reset\n" if $DEBUGLABELS;
 }
 
-sub start_switch {
-	my $self = shift;
+sub switch_start {
+	my ($self, $type) = @_;		# Do something with 'type'
 	push(@{$self->{LabelStack}},
 			[
 				$self->{Labels},
@@ -160,7 +163,7 @@ sub start_switch {
 	return $self->{BreakTarget};
 }
 
-sub end_switch {
+sub switch_end {
 	my $self = shift;
 	my $ret = [ $self->{Labels}, $self->{LabelDefault} ];
 	my ($labels, $default) = @{ pop(@{ $self->{LabelStack} }) };
@@ -173,14 +176,16 @@ sub end_switch {
 	return $ret;
 }
 
-sub start_loop {
+sub loop_start {
 	my $self = shift;
 	$self->{BreakTarget} = undef;
+	$self->{ContinueTarget} = $self->label(undef);
 }
 
-sub end_loop {
+sub loop_end {
 	my $self = shift;
 	$self->{BreakTarget} = pop(@{$self->{BreakStack}});
+	return $self->{BreakTarget};	# Make the return explicit
 }
 
 # XXX This mechanism isn't currently used.
@@ -281,6 +286,7 @@ sub method {
 							Flags	=> M_UNKNOWN,
 								);
 			$self->{Methods}->{$name} = $ob;
+			$self->{MethodFlags}->{$name} = 0;	# XXX UNDEFINED!
 		}
 		return $ob;
 	}
@@ -298,6 +304,8 @@ sub method {
 	# XXX Check sanity of modifiers
 
 	$self->{Methods}->{$name} = $method;
+	$self->{MethodFlags}->{$name} = 0
+					unless exists $self->{MethodFlags}->{$name};
 
 	return ();
 }
@@ -306,7 +314,7 @@ sub inherit {
 	my ($self, $name, $path) = @_;
 
 	my $inh = $PROGS{$path};
-	return "Could not find inherited program $_" unless $inh;
+	return "Could not find inherited program '$path'" unless $inh;
 
 	$name = basename($path, ".c") unless $name;		# Also support DGD
 	return "Already inheriting file named $name"
@@ -338,17 +346,15 @@ sub class {
 
 	unless ($fields) {
 		# Search for the class; return a valid type for it.
-		my $class = $self->{ClassesByName}->{$cname};
+		my $class = $self->{Classes}->{$cname};
 		return $class if $class;
 		$self->error("No class named $cname");
 		return undef;
 	}
 
-	my %class;
-	my @types;
+	my (%class, @types);
 	foreach (@$fields) {
-		my $name = $_->name;
-		my $type = $_->type;
+		my ($name, $type) = ($_->name, $_->type);
 		push(@types, $type);
 
 		if ($class{$name}) {
@@ -359,18 +365,13 @@ sub class {
 		$class{$name} = $type;
 	}
 
-	my $type = T_CLASS(@types);
+	my $type = T_CLASS($cname, @types);
 
-	$self->{ClassesByName}->{$cname} = {
+	$self->{Classes}->{$cname} = {
 					Data	=> $fields,
 					Fields	=> \%class,
 					Type	=> $type,
 						};
-
-# Can I avoid doing this?
-#	foreach (@$fields) {
-#		$self->{ClassesByType}->{$$type . $_->name} = $_->type;
-#	}
 
 	# print Dumper($fields);
 	# print STDERR "New class type is " . $$type . "\n";
@@ -393,7 +394,7 @@ sub class_type {
 sub class_field_type {
 	my ($self, $cname, $fname) = @_;
 
-	my $class = $self->class($cname);
+	my $class = $self->{Classes}->{$cname};
 	unless ($class) {
 		$self->error("No such class $cname");
 		return T_FAILED;
@@ -419,10 +420,9 @@ sub dump {
 					. ")" }
 					keys %{$self->{Inherits}};
 	my @glob = sort map { $_->dump(1) } values %{$self->{Globals}};
-	my @meth =
-			map { $self->{Methods}->{$_}->dump(1) }
-				grep { ! ($self->{MethodFlags}->{$_} & M_EFUN) }
-					sort keys %{$self->{Methods}};
+	my @meth = sort keys %{$self->{Methods}};
+	@meth = grep { ! ($self->{MethodFlags}->{$_} & M_EFUN) } @meth;
+	@meth = map { $self->{Methods}->{$_}->dump(1) } @meth;
 
 	my $out = "(program\n\t" . join("\n\t", @inh, @glob, @meth) . "\n)";
 
@@ -465,9 +465,11 @@ sub perl_global {
 }
 
 sub generate {
-	my ($self, $path) = @_;
+	my ($self) = @_;
 
+	my $path = $self->{Path};
 	my $package = $self->package;
+
 	$self->perl(PERL_HEAD, "# program $path;");
 	$self->perl(PERL_HEAD, "package $package;");
 	$self->perl(PERL_USE, "use strict;");

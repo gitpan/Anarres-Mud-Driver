@@ -4,15 +4,10 @@ use strict;
 use Carp qw(:DEFAULT cluck);
 use Exporter;
 use Data::Dumper;
-use Anarres::Mud::Driver::Compiler::Type;
+use Anarres::Mud::Driver::Compiler::Type qw(:all);
 use Anarres::Mud::Driver::Compiler::Node qw(@NODETYPES);
 
 push(@Anarres::Mud::Driver::Compiler::Node::ISA, __PACKAGE__);
-
-sub nodetype {
-	(my $name = (ref($_[0]) || $_[0])) =~ s/.*:://;
-	$name;
-}
 
 sub dumptype {
 	my $self = shift;
@@ -32,7 +27,7 @@ sub dumpblock {
 	my ($self, $vals, $indent, @rest) = @_;
 	$indent++;
 
-	my $op = $self->nodetype;
+	my $op = $self->opcode;
 
 	my @fields = map {
 			  ! $_				? "<undef>"
@@ -82,6 +77,13 @@ sub dumpblock {
 	package Anarres::Mud::Driver::Compiler::Node::VarGlobal;
 	sub dump {
 		"(" . $_[0]->dumptype . "varglobal " . $_[0]->value(0) . ")";
+	}
+}
+
+{
+	package Anarres::Mud::Driver::Compiler::Node::VarStatic;
+	sub dump {
+		"(" . $_[0]->dumptype . "varstatic " . $_[0]->value(0) . ")";
 	}
 }
 

@@ -4,6 +4,7 @@ use strict;
 use Carp qw(:DEFAULT cluck);
 use Exporter;
 use Data::Dumper;
+use String::Escape qw(quote printable);
 use Anarres::Mud::Driver::Compiler::Type;
 use Anarres::Mud::Driver::Compiler::Node qw(@NODETYPES);
 use Anarres::Mud::Driver::Compiler::Check qw(:flags);
@@ -115,6 +116,9 @@ my %OPCODETABLE = (
 	MapEq			=> '(A) == (B)',
 	MapNe			=> '(A) != (B)',
 
+	ObjEq			=> '(A) == (B)',
+	ObjNe			=> '(A) != (B)',
+
 	LogOr			=> '(A) || (B)',
 	LogAnd			=> '(A) && (B)',
 
@@ -125,7 +129,7 @@ my %OPCODETABLE = (
 	ExpCond			=> '(A) ? (B) : (C)',
 
 	New				=> '{ }',				# XXX Initialise to class?
-	Member			=> '(A)->{B}',
+	Member			=> '(A)->{_B_}',
 
 	ArrIndex		=> '(A)->[B]',
 	MapIndex		=> '(A)->{B}',
@@ -172,7 +176,6 @@ my %OPCODETABLE = (
 	StmtDo			=> 'do { B } while (A);',
 	StmtWhile		=> 'while (A) { B }',
 	StmtFor			=> 'for (A; B; C) D',
-	StmtForeach		=> 'foreach my A (@{ C }) D',
 	StmtForeachArr	=> 'foreach my A (@{ C }) D',
 	StmtForeachMap	=> 'foreach my A (keys %{ C }) D',	# XXX FIXME: B
 	StmtTry			=> 'eval A; if ($@) { my B = $@; C; }',
@@ -191,8 +194,14 @@ my %OPCODETABLE = (
 							AddEq SubEq DivEq MulEq ModEq
 							AndEq OrEq XorEq
 							LshEq RshEq
+
+							StmtForeach
 							),
 		);
+
+# XXX For the purposes of things like Member, I need to be able to
+# insert both expanded and nonexpanded versions of tokens.
+# So I need to be able to insert "A", _A_ and @A@ tokens, for example.
 
 sub gensub {
 	my ($self, $name, $code) = @_;
@@ -201,6 +210,10 @@ sub gensub {
 
 	foreach ('A'..'F') {	# Say ...
 		my $arg = ord($_) - ord('A');
+		# XXX This 'quote' routine doesn't necessarily quote
+		# appropriately.
+		$code =~ s/"$_"/' . quote(\$self->value($arg)) . '/g;
+		$code =~ s/\b_$_\_\b/' . \$self->value($arg) . '/g;
 		$code =~ s/\b$_\b/' . \$self->value($arg)->generate(\@_) . '/g;
 	}
 
@@ -220,7 +233,7 @@ sub gensub {
 sub generate ($) {
 	my $self = shift;
 
-	my $name = $self->nodetype;
+	my $name = $self->opcode;
 	# print "Finding code for $name\n";
 	my $code = $OPCODETABLE{$name};
 	return "GEN($name)" unless defined $code;
@@ -430,19 +443,21 @@ sub generate ($) {
 }
 
 {
-	package Anarres::Mud::Driver::Compiler::Node::Sscanf;
+	package Anarres::Mud::Driver::Compiler::Node::Scanf;
+	use String::Scanf;
+	*invoke = \&String::Scanf::sscanf;	# For consistency.
 	sub generate {
 		my $self = shift;
 		my ($exp, $fmt, @values) = $self->values;
-		@values = map { ', ' . $_->generate(@_) } @values;
-		return 'XXX_sscanf(' . $exp->generate(@_) . ', ' .
-					$fmt->generate(@_) .
-					join('', @values) . ')';
+		@values = map { $_->generate(@_) } @values;
+		return __PACKAGE__ . '::invoke((' . $exp->generate(@_) . '), ('.
+					$fmt->generate(@_) . '), (' .
+					join('), (', @values) . '))';
 	}
 }
 
 {
-	package Anarres::Mud::Driver::Compiler::Node::ArrUnion;
+	package Anarres::Mud::Driver::Compiler::Node::ArrOr;
 	# XXX Generate this inline like ArrSub.
 	sub invoke {
 		my @left = @{ $_[0] };
@@ -455,14 +470,14 @@ sub generate ($) {
 	}
 	sub generate {
 		my $self = shift;
-		return __PACKAGE__ . '::invoke('.
-						$self->value(0)->generate(@_) . ', ' .
-						$self->value(1)->generate(@_) . ')';
+		return __PACKAGE__ . '::invoke(('.
+						$self->value(0)->generate(@_) . '), (' .
+						$self->value(1)->generate(@_) . '))';
 	}
 }
 
 {
-	package Anarres::Mud::Driver::Compiler::Node::ArrIsect;
+	package Anarres::Mud::Driver::Compiler::Node::ArrAnd;
 	# XXX Generate this inline like ArrSub.
 	# sub infer { $_[1]->arrayp ? $_[0] : undef }
 	sub invoke {
@@ -614,6 +629,9 @@ sub generate ($) {
 		}
 		return $out;
 	}
+	# XXX Hack!
+	*Anarres::Mud::Driver::Compiler::Node::StmtIfElse::generate =
+			\&Anarres::Mud::Driver::Compiler::Node::StmtIf::generate;
 }
 
 if (1) {

@@ -22,8 +22,9 @@
 #define C_STRING		's'
 #define C_M_ARRAY		'*'
 #define C_M_MAPPING		'#'
-#define C_M_BEGINCLASS	'{'
-#define C_M_ENDCLASS	'}'
+#define C_M_CLASS_BEGIN	'{'
+#define C_M_CLASS_MID	':'
+#define C_M_CLASS_END	'}'
 
 #define C_FAILED		'!'
 
