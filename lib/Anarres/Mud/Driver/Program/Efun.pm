@@ -7,10 +7,13 @@ use Exporter;
 use Anarres::Mud::Driver::Program::Method qw(:flags);
 
 @ISA = qw(Anarres::Mud::Driver::Program::Method);
-@EXPORT_OK = qw(register %EFUNS %EFUNFLAGS);
+@EXPORT_OK = qw(register efuns efunflags);
 
 %EFUNS = ();
 %EFUNFLAGS = ();
+
+sub instantiate {
+}
 
 sub register {
 	my ($class, $flags, $rettype, @argtypes) = @_;
@@ -47,15 +50,19 @@ sub register {
 
 	$EFUNS{$efun} = $instance;
 	$EFUNFLAGS{$efun} = $flags | M_EFUN | M_INHERITED;
-
 }
 
-# Unfortunately, we need this for the ::invoke. Unless we throw
-# that into 'Name' as well, but then Name wouldn't match the hash
-# key in the Program object.
-sub gencall {
+# Class methods
+
+sub efuns { return { %EFUNS }; }
+sub efunflags { return { %EFUNFLAGS }; }
+
+# Instance methods
+
+sub generate_call {
 	my ($self, @args) = @_;
-	return ref($self) . "::invoke(" . join(", ", @args) . ")";
+	unshift(@args, '$self');
+	return ref($self) . '::invoke(' . join(', ', @args) . ')';
 }
 
 sub dump {

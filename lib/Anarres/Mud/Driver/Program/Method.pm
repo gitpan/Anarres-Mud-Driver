@@ -2,6 +2,7 @@ package Anarres::Mud::Driver::Program::Method;
 
 use strict;
 use vars qw(@ISA @EXPORT_OK %EXPORT_TAGS);
+# use overload '""' => sub { "AMD::Method(" . $_[0]->name . ")" };
 use Data::Dumper;
 use Carp qw(cluck);
 use Anarres::Mud::Driver::Program::Variable;
@@ -16,23 +17,21 @@ use Anarres::Mud::Driver::Program::Variable;
 		all		=> \@EXPORT_OK,
 			);
 
-sub M_NOMASK    () { 0x001 } 
-sub M_NOSAVE    () { 0x002 } 
-sub M_PRIVATE   () { 0x004 } 
-sub M_PROTECTED () { 0x008 } 
-sub M_PUBLIC    () { 0x010 } 
+	# Some of these belong to the function, some belong to the program
+	# in which it is declared. All except 'inherited' can be attached
+	# to the function. (or variable)
+sub M_NOMASK	() { 0x001 } 
+sub M_NOSAVE	() { 0x002 } 
+sub M_PRIVATE	() { 0x004 } 
+sub M_PROTECTED	() { 0x008 } 
+sub M_PUBLIC	() { 0x010 } 
 
-sub M_VARARGS   () { 0x020 } 
+sub M_VARARGS	() { 0x020 } 
 
-sub M_EFUN      () { 0x100 } 
-sub M_INHERITED () { 0x200 } 
-sub M_PURE      () { 0x400 } 
-
-#sub new {
-#	my $class = shift;
-#	my $self = $class->SUPER::new(@_);
-#	return $self;
-#}
+sub M_EFUN		() { 0x100 } 
+sub M_INHERITED	() { 0x200 } 
+sub M_APPLY		() { 0x400 } 
+sub M_PURE		() { 0x800 } 
 
 sub args { return $_[0]->{Args}; }
 
@@ -50,13 +49,15 @@ sub code {
 sub typecheck {
 	my ($self, $program, @rest) = @_;
 	print "Typechecking method " . $self->name . " (top level)\n";
-	print $self->dump, "\n";
+	# print $self->dump, "\n";
 
 	# Start adding locals, etc, etc.
 
 	$program->reset_labels;
 	$program->save_locals;
-	$program->locals($self->args);
+	foreach (@{ $self->args }) {
+		$program->local($_);
+	}
 	my $code = $self->code;
 	if ($code) {
 		$code->typecheck($program, @rest);
@@ -89,11 +90,6 @@ sub dump {
 	return $out;
 }
 
-sub gencall {
-	my ($self, @args) = @_;
-	return '$self->' . $self->name . "(" . join(", ", @args) . ")";
-}
-
 	# This should generate Perl code for the method
 sub generate {
 	my $self = shift;
@@ -108,13 +104,49 @@ sub generate {
 	my $head =
 		"\n# method " . $self->name . " proto " . $rtproto . "\n" .
 		"sub " . $self->name . " ($proto) {\n";
-	my $tail = "\n}\n";
+	# XXX Generate warning if no return from nonvoid function.
+	my $tail = "\n\treturn undef;\n}\n";
 
 	my @args = map { ', $' . $_->name } @{ $self->args };
 	my $args = "\t" . 'my ($self' . join('', @args) . ') = @_;' .
 					"\n\t";
 
 	return $head . $args . $self->code->generate($indent, @_) . $tail;
+}
+
+	# This has a weird prototype for a typecheck method.
+sub typecheck_call {
+	my ($self, $program, $values, @rest) = @_;
+
+	my $i = 1;
+	foreach (@{ $self->args }) {
+		my $val = $values->[$i];
+		# print "Matching arg against " . $_->dump . "\n";
+		my $arg = $val->infer($_->type);
+		if (! $arg) {
+			$program->error("Argument " . ($i + 1) . " to " .
+							$self->name .
+							" is type " . ${ $val->type } .
+							" not type " . ${ $_->type });
+		}
+		elsif ($arg != $val) {
+			$arg->typecheck($program, undef, @rest);
+			$values->[$i] = $arg;
+		}
+		# print "OK\n";
+	}
+	continue {
+		$i++;
+	}
+
+#		print "Funcall " . $method->name . " checked and becomes type "
+#						. ${$method->type} . "\n" if 0;
+	return $self->type;
+}
+
+sub generate_call {
+	my ($self, @args) = @_;
+	return '$self->' . $self->name . "(" . join(", ", @args) . ")";
 }
 
 1;

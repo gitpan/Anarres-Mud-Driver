@@ -5392,61 +5392,61 @@ sub
 	[#Rule 79
 		 'exp', 3,
 sub
-#line 443 "Parse.yp"
+#line 445 "Parse.yp"
 { n_assign $_[1], $_[3] }
 	],
 	[#Rule 80
 		 'exp', 3,
 sub
-#line 445 "Parse.yp"
+#line 447 "Parse.yp"
 { n_assign($_[1], n_add($_[1], $_[3])) }
 	],
 	[#Rule 81
 		 'exp', 3,
 sub
-#line 447 "Parse.yp"
+#line 449 "Parse.yp"
 { n_assign($_[1], n_sub($_[1], $_[3])) }
 	],
 	[#Rule 82
 		 'exp', 3,
 sub
-#line 449 "Parse.yp"
+#line 451 "Parse.yp"
 { n_assign($_[1], n_div($_[1], $_[3])) }
 	],
 	[#Rule 83
 		 'exp', 3,
 sub
-#line 451 "Parse.yp"
+#line 453 "Parse.yp"
 { n_assign($_[1], n_mul($_[1], $_[3])) }
 	],
 	[#Rule 84
 		 'exp', 3,
 sub
-#line 453 "Parse.yp"
+#line 455 "Parse.yp"
 { n_assign($_[1], n_mod($_[1], $_[3])) }
 	],
 	[#Rule 85
 		 'exp', 3,
 sub
-#line 455 "Parse.yp"
+#line 457 "Parse.yp"
 { n_assign($_[1], n_and($_[1], $_[3])) }
 	],
 	[#Rule 86
 		 'exp', 3,
 sub
-#line 457 "Parse.yp"
+#line 459 "Parse.yp"
 { n_assign($_[1], n_or($_[1], $_[3])) }
 	],
 	[#Rule 87
 		 'exp', 3,
 sub
-#line 459 "Parse.yp"
+#line 461 "Parse.yp"
 { n_assign($_[1], n_xor($_[1], $_[3])) }
 	],
 	[#Rule 88
 		 'exp', 3,
 sub
-#line 461 "Parse.yp"
+#line 463 "Parse.yp"
 { n_assign($_[1], n_stradd($_[1], $_[3])) }
 	],
 	[#Rule 89
@@ -5455,7 +5455,7 @@ sub
 	[#Rule 90
 		 'cond_exp', 5,
 sub
-#line 467 "Parse.yp"
+#line 469 "Parse.yp"
 { n_expcond $_[1], $_[3], $_[5] }
 	],
 	[#Rule 91
@@ -5464,31 +5464,31 @@ sub
 	[#Rule 92
 		 'logical_exp', 3,
 sub
-#line 472 "Parse.yp"
+#line 474 "Parse.yp"
 { n_logor	$_[1], $_[3] }
 	],
 	[#Rule 93
 		 'logical_exp', 3,
 sub
-#line 473 "Parse.yp"
+#line 475 "Parse.yp"
 { n_logand	$_[1], $_[3] }
 	],
 	[#Rule 94
 		 'logical_exp', 3,
 sub
-#line 474 "Parse.yp"
+#line 476 "Parse.yp"
 { n_or		$_[1], $_[3] }
 	],
 	[#Rule 95
 		 'logical_exp', 3,
 sub
-#line 475 "Parse.yp"
+#line 477 "Parse.yp"
 { n_xor		$_[1], $_[3] }
 	],
 	[#Rule 96
 		 'logical_exp', 3,
 sub
-#line 476 "Parse.yp"
+#line 478 "Parse.yp"
 { n_and		$_[1], $_[3] }
 	],
 	[#Rule 97
@@ -5497,37 +5497,37 @@ sub
 	[#Rule 98
 		 'compare_exp', 3,
 sub
-#line 481 "Parse.yp"
+#line 483 "Parse.yp"
 { n_eq $_[1], $_[3] }
 	],
 	[#Rule 99
 		 'compare_exp', 3,
 sub
-#line 482 "Parse.yp"
+#line 484 "Parse.yp"
 { n_ne $_[1], $_[3] }
 	],
 	[#Rule 100
 		 'compare_exp', 3,
 sub
-#line 483 "Parse.yp"
+#line 485 "Parse.yp"
 { n_lt $_[1], $_[3] }
 	],
 	[#Rule 101
 		 'compare_exp', 3,
 sub
-#line 484 "Parse.yp"
+#line 486 "Parse.yp"
 { n_gt $_[1], $_[3] }
 	],
 	[#Rule 102
 		 'compare_exp', 3,
 sub
-#line 485 "Parse.yp"
+#line 487 "Parse.yp"
 { n_le $_[1], $_[3] }
 	],
 	[#Rule 103
 		 'compare_exp', 3,
 sub
-#line 486 "Parse.yp"
+#line 488 "Parse.yp"
 { n_ge $_[1], $_[3] }
 	],
 	[#Rule 104
@@ -5536,49 +5536,49 @@ sub
 	[#Rule 105
 		 'arith_exp', 3,
 sub
-#line 491 "Parse.yp"
+#line 493 "Parse.yp"
 { n_lsh $_[1], $_[3] }
 	],
 	[#Rule 106
 		 'arith_exp', 3,
 sub
-#line 492 "Parse.yp"
+#line 494 "Parse.yp"
 { n_rsh $_[1], $_[3] }
 	],
 	[#Rule 107
 		 'arith_exp', 3,
 sub
-#line 493 "Parse.yp"
+#line 495 "Parse.yp"
 { n_stradd $_[1], $_[3] }
 	],
 	[#Rule 108
 		 'arith_exp', 3,
 sub
-#line 494 "Parse.yp"
+#line 496 "Parse.yp"
 { n_add $_[1], $_[3] }
 	],
 	[#Rule 109
 		 'arith_exp', 3,
 sub
-#line 495 "Parse.yp"
+#line 497 "Parse.yp"
 { n_sub $_[1], $_[3] }
 	],
 	[#Rule 110
 		 'arith_exp', 3,
 sub
-#line 496 "Parse.yp"
+#line 498 "Parse.yp"
 { n_mul $_[1], $_[3] }
 	],
 	[#Rule 111
 		 'arith_exp', 3,
 sub
-#line 497 "Parse.yp"
+#line 499 "Parse.yp"
 { n_div $_[1], $_[3] }
 	],
 	[#Rule 112
 		 'arith_exp', 3,
 sub
-#line 498 "Parse.yp"
+#line 500 "Parse.yp"
 { n_mod $_[1], $_[3] }
 	],
 	[#Rule 113
@@ -5587,37 +5587,37 @@ sub
 	[#Rule 114
 		 'prefix_exp', 2,
 sub
-#line 503 "Parse.yp"
+#line 505 "Parse.yp"
 { n_preinc $_[2] }
 	],
 	[#Rule 115
 		 'prefix_exp', 2,
 sub
-#line 504 "Parse.yp"
+#line 506 "Parse.yp"
 { n_predec $_[2] }
 	],
 	[#Rule 116
 		 'prefix_exp', 2,
 sub
-#line 505 "Parse.yp"
+#line 507 "Parse.yp"
 { n_unot $_[2] }
 	],
 	[#Rule 117
 		 'prefix_exp', 2,
 sub
-#line 506 "Parse.yp"
+#line 508 "Parse.yp"
 { n_tilde $_[2] }
 	],
 	[#Rule 118
 		 'prefix_exp', 2,
 sub
-#line 507 "Parse.yp"
+#line 509 "Parse.yp"
 { n_plus $_[2] }
 	],
 	[#Rule 119
 		 'prefix_exp', 2,
 sub
-#line 508 "Parse.yp"
+#line 510 "Parse.yp"
 { n_minus $_[2] }
 	],
 	[#Rule 120
@@ -5626,13 +5626,13 @@ sub
 	[#Rule 121
 		 'postfix_exp', 2,
 sub
-#line 513 "Parse.yp"
+#line 515 "Parse.yp"
 { n_postinc $_[1] }
 	],
 	[#Rule 122
 		 'postfix_exp', 2,
 sub
-#line 514 "Parse.yp"
+#line 516 "Parse.yp"
 { n_postdec $_[1] }
 	],
 	[#Rule 123
@@ -5641,7 +5641,7 @@ sub
 	[#Rule 124
 		 'array_exp', 5,
 sub
-#line 520 "Parse.yp"
+#line 522 "Parse.yp"
 {
 			n_index $_[1], $_[4];
 		}
@@ -5649,7 +5649,7 @@ sub
 	[#Rule 125
 		 'array_exp', 8,
 sub
-#line 526 "Parse.yp"
+#line 528 "Parse.yp"
 {
 			# XXX Correct for ends of range
 			n_range $_[1], $_[4], $_[7];
@@ -5658,7 +5658,7 @@ sub
 	[#Rule 126
 		 'opt_endrange', 0,
 sub
-#line 534 "Parse.yp"
+#line 536 "Parse.yp"
 {
 			undef
 		}
@@ -5666,7 +5666,7 @@ sub
 	[#Rule 127
 		 'opt_endrange', 1,
 sub
-#line 538 "Parse.yp"
+#line 540 "Parse.yp"
 {
 			1
 		}
@@ -5674,49 +5674,49 @@ sub
 	[#Rule 128
 		 'basic_exp', 1,
 sub
-#line 544 "Parse.yp"
+#line 546 "Parse.yp"
 { n_nil }
 	],
 	[#Rule 129
 		 'basic_exp', 1,
 sub
-#line 545 "Parse.yp"
+#line 547 "Parse.yp"
 { n_string $_[1] }
 	],
 	[#Rule 130
 		 'basic_exp', 1,
 sub
-#line 546 "Parse.yp"
+#line 548 "Parse.yp"
 { n_integer $_[1] }
 	],
 	[#Rule 131
 		 'basic_exp', 1,
 sub
-#line 547 "Parse.yp"
+#line 549 "Parse.yp"
 { n_array @{ $_[1] } }
 	],
 	[#Rule 132
 		 'basic_exp', 1,
 sub
-#line 548 "Parse.yp"
+#line 550 "Parse.yp"
 { n_mapping @{ $_[1] } }
 	],
 	[#Rule 133
 		 'basic_exp', 1,
 sub
-#line 549 "Parse.yp"
+#line 551 "Parse.yp"
 { n_closure $_[1] }
 	],
 	[#Rule 134
 		 'basic_exp', 1,
 sub
-#line 550 "Parse.yp"
+#line 552 "Parse.yp"
 { n_variable $_[1] }
 	],
 	[#Rule 135
 		 'basic_exp', 1,
 sub
-#line 552 "Parse.yp"
+#line 554 "Parse.yp"
 {
 			# XXX Check in closure context?
 			n_parameter $_[1]
@@ -5725,7 +5725,7 @@ sub
 	[#Rule 136
 		 'basic_exp', 4,
 sub
-#line 557 "Parse.yp"
+#line 559 "Parse.yp"
 {
 			# XXX A variable by value... closures only
 			n_variable $_[3]
@@ -5734,13 +5734,13 @@ sub
 	[#Rule 137
 		 'basic_exp', 3,
 sub
-#line 561 "Parse.yp"
+#line 563 "Parse.yp"
 { $_[2] }
 	],
 	[#Rule 138
 		 'basic_exp', 4,
 sub
-#line 563 "Parse.yp"
+#line 565 "Parse.yp"
 {
 			n_funcall $_[1], @{ $_[3] };
 		}
@@ -5748,7 +5748,7 @@ sub
 	[#Rule 139
 		 'basic_exp', 5,
 sub
-#line 567 "Parse.yp"
+#line 569 "Parse.yp"
 {
 			n_sscanf $_[3], @{ $_[4] };		# XXX Expand later
 		}
@@ -5756,7 +5756,7 @@ sub
 	[#Rule 140
 		 'basic_exp', 4,
 sub
-#line 571 "Parse.yp"
+#line 573 "Parse.yp"
 {
 			n_catch $_[3];
 		}
@@ -5764,7 +5764,7 @@ sub
 	[#Rule 141
 		 'basic_exp', 6,
 sub
-#line 575 "Parse.yp"
+#line 577 "Parse.yp"
 {
 			n_callother $_[1], $_[3], @{ $_[5] };
 		}
@@ -5772,7 +5772,7 @@ sub
 	[#Rule 142
 		 'lvalue_list', 0,
 sub
-#line 582 "Parse.yp"
+#line 584 "Parse.yp"
 {
 			[]
 		}
@@ -5780,7 +5780,7 @@ sub
 	[#Rule 143
 		 'lvalue_list', 3,
 sub
-#line 586 "Parse.yp"
+#line 588 "Parse.yp"
 {
 			push(@{$_[1]}, $_[3]); $_[1];
 		}
@@ -5788,7 +5788,7 @@ sub
 	[#Rule 144
 		 'global_decl', 4,
 sub
-#line 601 "Parse.yp"
+#line 603 "Parse.yp"
 {
 			foreach (@{$_[3]}) {
 				my $type = $_[2];
@@ -5805,7 +5805,7 @@ sub
 	[#Rule 145
 		 'local_decls', 0,
 sub
-#line 617 "Parse.yp"
+#line 619 "Parse.yp"
 {
 			return [];
 		}
@@ -5813,7 +5813,7 @@ sub
 	[#Rule 146
 		 'local_decls', 2,
 sub
-#line 621 "Parse.yp"
+#line 623 "Parse.yp"
 {
 			push(@{$_[1]}, @{$_[2]}); $_[1];
 		}
@@ -5821,7 +5821,7 @@ sub
 	[#Rule 147
 		 'local_decl', 3,
 sub
-#line 628 "Parse.yp"
+#line 630 "Parse.yp"
 {
 			my @out = ();
 			foreach (@{$_[2]}) {
@@ -5840,13 +5840,13 @@ sub
 	[#Rule 148
 		 'arguments', 0,
 sub
-#line 646 "Parse.yp"
+#line 648 "Parse.yp"
 { return []; }
 	],
 	[#Rule 149
 		 'arguments', 1,
 sub
-#line 648 "Parse.yp"
+#line 650 "Parse.yp"
 { return []; }
 	],
 	[#Rule 150
@@ -5858,7 +5858,7 @@ sub
 	[#Rule 152
 		 'argument_list', 1,
 sub
-#line 656 "Parse.yp"
+#line 658 "Parse.yp"
 {
 			return [ $_[1] ];
 		}
@@ -5866,7 +5866,7 @@ sub
 	[#Rule 153
 		 'argument_list', 3,
 sub
-#line 660 "Parse.yp"
+#line 662 "Parse.yp"
 {
 			push(@{$_[1]}, $_[3]); $_[1];
 		}
@@ -5874,7 +5874,7 @@ sub
 	[#Rule 154
 		 'argument', 2,
 sub
-#line 667 "Parse.yp"
+#line 669 "Parse.yp"
 {
 			my $type = $_[1];
 			$type = $type->pointer($_[2]->[0]) if $_[2]->[0];
@@ -5887,7 +5887,7 @@ sub
 	[#Rule 155
 		 'type_modifier_list', 0,
 sub
-#line 679 "Parse.yp"
+#line 681 "Parse.yp"
 { 
 			return 0;
 		}
@@ -5895,7 +5895,7 @@ sub
 	[#Rule 156
 		 'type_modifier_list', 2,
 sub
-#line 683 "Parse.yp"
+#line 685 "Parse.yp"
 {
 			# XXX Check for multiple access modifiers
 			return $_[1] | $_[2];
@@ -5910,7 +5910,7 @@ sub
 	[#Rule 159
 		 'star_list', 0,
 sub
-#line 697 "Parse.yp"
+#line 699 "Parse.yp"
 {
 			return 0;
 		}
@@ -5918,7 +5918,7 @@ sub
 	[#Rule 160
 		 'star_list', 2,
 sub
-#line 701 "Parse.yp"
+#line 703 "Parse.yp"
 {
 			# XXX Check for too deep.
 			return $_[1] + 1;
@@ -5927,7 +5927,7 @@ sub
 	[#Rule 161
 		 'star_list', 2,
 sub
-#line 706 "Parse.yp"
+#line 708 "Parse.yp"
 {
 			# A mapping (hash!)
 			# We could "#define mapping mixed #" for compatability.
@@ -5941,19 +5941,19 @@ sub
 	[#Rule 163
 		 'string_const', 3,
 sub
-#line 721 "Parse.yp"
+#line 723 "Parse.yp"
 { return $_[1] . $_[3] }
 	],
 	[#Rule 164
 		 'string_const', 3,
 sub
-#line 722 "Parse.yp"
+#line 724 "Parse.yp"
 { return $_[1] . $_[3] }
 	],
 	[#Rule 165
 		 'string_const', 1,
 sub
-#line 723 "Parse.yp"
+#line 725 "Parse.yp"
 { return "$_[1]" }
 	],
 	[#Rule 166
@@ -5962,43 +5962,43 @@ sub
 	[#Rule 167
 		 'string', 2,
 sub
-#line 730 "Parse.yp"
+#line 732 "Parse.yp"
 { return $_[1] . $_[2] }
 	],
 	[#Rule 168
 		 'integer', 1,
 sub
-#line 734 "Parse.yp"
+#line 736 "Parse.yp"
 { 0 + $_[1] }
 	],
 	[#Rule 169
 		 'integer', 1,
 sub
-#line 735 "Parse.yp"
+#line 737 "Parse.yp"
 { hex($_[1]) }
 	],
 	[#Rule 170
 		 'integer', 1,
 sub
-#line 736 "Parse.yp"
+#line 738 "Parse.yp"
 { 0 + $_[1] }
 	],
 	[#Rule 171
 		 'array', 3,
 sub
-#line 750 "Parse.yp"
+#line 752 "Parse.yp"
 { $_[2] }
 	],
 	[#Rule 172
 		 'mapping', 3,
 sub
-#line 755 "Parse.yp"
+#line 757 "Parse.yp"
 { $_[2] }
 	],
 	[#Rule 173
 		 'closure', 3,
 sub
-#line 761 "Parse.yp"
+#line 763 "Parse.yp"
 { $_[2] }
 	]
 ],
@@ -6006,7 +6006,7 @@ sub
     bless($self,$class);
 }
 
-#line 764 "Parse.yp"
+#line 766 "Parse.yp"
 
 
 sub yyerror {

@@ -2,9 +2,13 @@ package Anarres::Mud::Driver::Program::Variable;
 
 use strict;
 use vars qw(@ISA);
+# use overload '""' => sub { "AMD::Variable(" . $_[0]->name . ")" };
 use Exporter;
 
 @ISA = qw(Exporter);
+
+# New representation will be [ Type, Flags, Name, Args, Code ]
+# Args and Code are only relevant for Method objects.
 
 sub new {
 	my $class = shift;

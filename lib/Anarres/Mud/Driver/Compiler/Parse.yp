@@ -437,6 +437,8 @@ lvalue
 		: array_exp				# check
 	;
 
+	# XXX This is Wrong, since we evaluate the lvalue twice...
+	# and the lvalue may have a side effect, e.g. a[i++] += 5;
 exp
 		: cond_exp				# default
 		| lvalue '=' exp

@@ -88,7 +88,7 @@ BEGIN {
 		# Do I want this? (for addition, hash deref, assignment)
 		$TYPES{T_INTEGER}	. '<' . $TYPES{T_STRING}	=> $identity,
 		# Or this? (for hash deref)
-		$TYPES{T_OBJECT}	. '<' . $TYPES{T_STRING}	=> $identity,
+		# $TYPES{T_OBJECT}	. '<' . $TYPES{T_STRING}	=> $identity,
 
 		#$TYPES{T_VOID}		. '<' . $TYPES{T_VOID}		=> $identity,
 

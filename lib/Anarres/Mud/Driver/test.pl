@@ -25,6 +25,7 @@ sub mungeerror {
 	$err =~ s/Anarres::Mud::Driver::Program/_AMDP/g;
 	$err =~ s/Anarres::Mud::Driver::Compiler/_AMDC/g;
 	$err =~ s/Anarres::Mud::Driver/_AMD/g;
+	confess $err if $err =~ /Deep recursion/i;
 	return $err;
 }
 

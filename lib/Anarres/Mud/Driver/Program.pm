@@ -8,7 +8,7 @@ use Data::Dumper;
 use File::Basename;
 use String::Escape qw(quote printable);
 use Anarres::Mud::Driver::Program::Method qw(:flags);
-use Anarres::Mud::Driver::Program::Efun qw(%EFUNS %EFUNFLAGS);
+use Anarres::Mud::Driver::Program::Efun qw(efuns efunflags);
 
 @ISA = qw(Exporter);
 @EXPORT_OK = (qw(package_to_path path_to_package));
@@ -33,8 +33,8 @@ sub new {
 	$self->{Locals} = { };
 	$self->{Labels} = { };
 	$self->{LabelDefault} = undef;
-	$self->{Methods} = { %EFUNS };
-	$self->{MethodFlags} = { %EFUNFLAGS };
+	$self->{Methods} = efuns;
+	$self->{MethodFlags} = efunflags;
 
 	$self->{ScopeStack} = [ ];
 	$self->{LabelStack} = [ ];
@@ -90,6 +90,7 @@ sub ppsource { return $_[0]->{PPSource}; }
 sub package { return path_to_package $_[0]->{Path}; }
 
 sub methods	{ return values %{ $_[0]->{Methods} }; }
+# sub locals	{ return values %{ $_[0]->{Globals} }; }
 sub globals	{ return values %{ $_[0]->{Globals} }; }
 
 sub variable {
@@ -127,6 +128,7 @@ sub save_labels {
 	$self->{LabelDefault} = undef;
 	$self->{Labels} = { };
 	$self->{EndSwitch} = $self->label(undef);
+	print "Push labels: " . scalar(@{ $self->{LabelStack} }) . "\n";
 	return $self->{EndSwitch};
 }
 
@@ -138,6 +140,7 @@ sub restore_labels {
 	$self->{Labels} = { %{$self->{Labels}}, %$labels, };
 	$self->{LabelDefault} ||= $default;
 	$self->{EndSwitch} = $endswitch;
+	print "Pop labels: " . scalar(@{ $self->{LabelStack} }) . "\n";
 	return $ret;
 }
 
@@ -177,7 +180,7 @@ sub restore_locals {
 sub local {
 	my ($self, $var) = @_;
 
-	die "var '$var' not blessed" unless ref($var) =~ /::/;
+	return $self->{Locals}->{$var} unless ref($var);
 
 	my $name = $var->name;
 
@@ -191,20 +194,10 @@ sub local {
 	return ();
 }
 
-sub locals {
-	my $self = shift;
-	my @locals = ref($_[0]) eq 'ARRAY'
-					? @{ $_[0] } 
-					: @_;
-	foreach (@locals) {
-		$self->local($_);
-	}
-}
-
 sub global {
 	my ($self, $var, $mods) = @_;
 
-	die "var '$var' not blessed" unless ref($var) =~ /::/;
+	return $self->{Globals}->{$var} unless ref($var);
 
 	my $name = $var->name;
 

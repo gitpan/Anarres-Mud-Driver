@@ -57,12 +57,6 @@ sub compile {
 	die "Invalid path - contains ' or :"
 					if $path =~ /[:']/;
 
-	my $diskpath = "/home/anarres/mudlib" . $path;
-
-	my $text = $self->file($diskpath);
-
-	my $pptext = $self->preprocess($text, $diskpath);
-
 	my $prog;
 
 	my @cppm = stat("Compiler/Parse.pm");
@@ -73,7 +67,12 @@ sub compile {
 
 	my @cppt = stat("parsetree");
 	if ($cppm[9] > $cppt[9]) {
-	# if (0) {
+		my $diskpath = "/home/anarres/mudlib" . $path;
+
+		my $text = $self->file($diskpath);
+
+		my $pptext = $self->preprocess($text, $diskpath);
+
 		# Hack hack
 		$prog = new Anarres::Mud::Driver::Program(
 						Path		=> $path,

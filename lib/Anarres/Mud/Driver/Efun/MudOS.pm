@@ -11,11 +11,19 @@ use Anarres::Mud::Driver::Program::Efun qw(register);
 # In fact, they probably won't inherit at all. They only resolve at
 # link time.
 
+# Note that we don't actually register all available efuns. We
+# register only those which are visible as efuns to the LPC code.
+# We may have more efuns, an individual efun typecheck_call method
+# may decide to rebless the node into a different efun class.
+# For example, map => map_array or map_mapping. In this way we
+# can use the Perl object oriented dispatch mechanism to speed up
+# many operations where a pure Perl conditional would be slower.
+
 @ISA = qw(Anarres::Mud::Driver::Program::Efun);
 
 {
 	# As traditional, [ flags, return type, argtype .... ]
-	my $pflags = M_PURE | M_NOMASK;
+	my $pflags = M_PURE | M_NOMASK;	# This just lets me format nicely.
 	my %efuns = (
 		# Object stuff
 
@@ -38,7 +46,7 @@ use Anarres::Mud::Driver::Program::Efun qw(register);
 		upper_case		=> [ M_PURE, T_STRING, T_STRING, ],
 		strlen			=> [ M_PURE, T_INTEGER, T_STRING, ],
 		replace_string	=> [ M_PURE, T_STRING, T_STRING, T_STRING, T_STRING, ],
-		capitalize		=> [ M_PURE, T_STRING, ],
+		capitalize		=> [ M_PURE, T_STRING, T_STRING, ],
 		strsrch			=> [ M_PURE, T_INTEGER, T_STRING, T_STRING, ],
 		regexp			=> [ M_PURE, T_INTEGER, T_STRING, T_STRING, ],
 
@@ -113,7 +121,7 @@ use Anarres::Mud::Driver::Program::Efun qw(register);
 
 {
 	package Anarres::Mud::Driver::Efun::MudOS::debug_message;
-	sub gencall { "print STDERR $_[1], '\\n'" }
+	sub generate_call { "print STDERR $_[1], '\\n'" }
 }
 
 {
@@ -123,50 +131,45 @@ use Anarres::Mud::Driver::Program::Efun qw(register);
 
 {
 	package Anarres::Mud::Driver::Efun::MudOS::file_name;
-	sub gencall {
+	sub generate_call {
 		"Anarres::Mud::Driver::Program::package_to_path(ref($_[1]))"
 	}
 }
 
 {
 	package Anarres::Mud::Driver::Efun::MudOS::find_object;
-	# sub gencall { "undef" }
+	# sub generate_call { "undef" }
 	sub invoke { undef }
 }
 
 {
 	package Anarres::Mud::Driver::Efun::MudOS::to_string;
 	# XXX This only works for CONSTANT integers, of course.
-	# sub gencall { '"' . $_[1] . '"' }
+	# sub generate_call { '"' . $_[1] . '"' }
 	# This works for any integer which is about to be evaluated as
 	# a string by Perl. 6 . 7 == "67";
-	sub gencall { ('' . $_[1]) }
-}
-
-{
-	package Anarres::Mud::Driver::Efun::MudOS::sizeof;
-	# XXX gencall or invoke
+	sub generate_call { ('' . $_[1]) }
 }
 
 {
 	package Anarres::Mud::Driver::Efun::MudOS::strlen;
-	sub gencall { "length($_[1])" }
+	sub generate_call { "length($_[1])" }
 }
 
 {
 	package Anarres::Mud::Driver::Efun::MudOS::error;
-	sub gencall { "die('LPC: ' . $_[1])" }
+	sub generate_call { "die('LPC: ' . $_[1])" }
 }
 
 {
 	package Anarres::Mud::Driver::Efun::MudOS::implode;
-	sub gencall { "join($_[2], \@{ $_[1] })" }
+	sub generate_call { "join($_[2], \@{ $_[1] })" }
 }
 
 {
 	package Anarres::Mud::Driver::Efun::MudOS::explode;
 	# XXX This probably has to become an XSUB for compatability.
-	sub gencall { "split(quotemeta($_[2]), $_[1])" }
+	sub generate_call { "split(quotemeta($_[2]), $_[1])" }
 }
 
 {
@@ -176,82 +179,82 @@ use Anarres::Mud::Driver::Program::Efun qw(register);
 
 {
 	package Anarres::Mud::Driver::Efun::MudOS::intp;
-	sub gencall { "(defined($_[1]) && !ref($_[1]))" }
+	sub generate_call { "(defined($_[1]) && !ref($_[1]))" }
 }
 
 {
 	package Anarres::Mud::Driver::Efun::MudOS::stringp;
-	sub gencall { "(defined($_[1]) && !ref($_[1]))" }
+	sub generate_call { "(defined($_[1]) && !ref($_[1]))" }
 }
 
 {
 	package Anarres::Mud::Driver::Efun::MudOS::arrayp;
-	sub gencall { "ref($_[1]) eq 'ARRAY'" }
+	sub generate_call { "ref($_[1]) eq 'ARRAY'" }
 }
 
 {
 	package Anarres::Mud::Driver::Efun::MudOS::mapp;
-	sub gencall { "ref($_[1]) eq 'HASH'" }
+	sub generate_call { "ref($_[1]) eq 'HASH'" }
 }
 
 {
 	package Anarres::Mud::Driver::Efun::MudOS::objectp;
-	sub gencall { "ref($_[1]) =~ /::/" }	# XXX
+	sub generate_call { "ref($_[1]) =~ /::/" }	# XXX
 }
 
 {
 	package Anarres::Mud::Driver::Efun::MudOS::clonep;
-	sub gencall { "ref($_[1]) =~ /::/" }	# XXX
+	sub generate_call { "ref($_[1]) =~ /::/" }	# XXX
 }
 
 {
 	package Anarres::Mud::Driver::Efun::MudOS::keys;
-	sub gencall { "keys(\%{$_[1]})" }
+	sub generate_call { "keys(\%{$_[1]})" }
 }
 
 {
 	package Anarres::Mud::Driver::Efun::MudOS::values;
-	sub gencall { "values(\%{$_[1]})" }
+	sub generate_call { "values(\%{$_[1]})" }
 }
 
 {
 	package Anarres::Mud::Driver::Efun::MudOS::regexp;
-	sub gencall { "XXX($_[1] =~ /$_[2]/)" }
+	sub generate_call { "XXX($_[1] =~ /$_[2]/)" }
 }
 
 {
 	package Anarres::Mud::Driver::Efun::MudOS::clone_object;
-	sub gencall { "$_[1]\->new()" }
+	sub generate_call { "$_[1]\->new()" }
 }
 
 {
 	package Anarres::Mud::Driver::Efun::MudOS::this_object;
-	sub gencall { '$self' }
+	sub generate_call { '$self' }
 }
 
 {
 	package Anarres::Mud::Driver::Efun::MudOS::strsrch;
-	sub gencall { "index($_[1], $_[2])" }
+	sub generate_call { "index($_[1], $_[2])" }
 }
 
 {
 	package Anarres::Mud::Driver::Efun::MudOS::lower_case;
-	sub gencall { "lc($_[1])" }
+	sub generate_call { "lc($_[1])" }
 }
 
 {
 	package Anarres::Mud::Driver::Efun::MudOS::upper_case;
-	sub gencall { "uc($_[1])" }
+	sub generate_call { "uc($_[1])" }
 }
 
 {
 	package Anarres::Mud::Driver::Efun::MudOS::capitalize;
-	sub gencall { "ucfirst($_[1])" }
+	sub generate_call { "ucfirst($_[1])" }
 }
 
 {
 	package Anarres::Mud::Driver::Efun::MudOS::allocate;
-	sub gencall {
+	sub generate_call {
 		my $val = defined $_[2] ? $_[2] : 'undef';
 		return "[ ($val) x $_[1] ]"
 	}
@@ -259,21 +262,70 @@ use Anarres::Mud::Driver::Program::Efun qw(register);
 
 {
 	package Anarres::Mud::Driver::Efun::MudOS::to_int;
-	sub gencall { "(0 + ($_[1]))" }
+	sub generate_call { "(0 + ($_[1]))" }
 }
 
 {
 	package Anarres::Mud::Driver::Efun::MudOS::inherits;
-	sub gencall { "($_[2])->isa(XXX_to_package($_[1]))" }
+	sub generate_call { "($_[2])->isa(XXX_to_package($_[1]))" }
 }
 
 {
 	package Anarres::Mud::Driver::Efun::MudOS::sizeof;
-	sub gencall { 'do { my $__a = ' . $_[1] . '; my $__r = ref($__a); '.
-			'$__r eq "ARRAY" ? scalar(@$__a) : ' .
-			'$__r eq "HASH" ? scalar(keys %$__a) : ' .
-			'$__r eq "" ? length($__a) : ' .	# XXX Deal with ints
-			'0 }' }
+	sub generate_call {
+		# XXX Arse - use typechecking info!
+		# XXX Deal with ints
+		'do { my $__a = ' . $_[1] . '; my $r = ref($__a); ' .
+				# ($#$__a + 1) ?
+				'$__r eq "ARRAY" ? scalar(@{$__a}) : ' .
+				'$__r eq "HASH" ? scalar(keys %{$__a}) : ' .
+				'$__r eq "" ? length($__a) : ' .
+				'die "Cannot take sizeof($__r)"; }';
+	}
+}
+
+{
+	package Anarres::Mud::Driver::Efun::MudOS::file_size;
+	use Fcntl qw(:mode);
+	sub invoke {
+		my @stat = stat($_[1]);
+		return -1 unless @stat;
+		return -2 if ($stat[2] & S_IFDIR);
+		return $stat[2];
+	}
+}
+
+{
+	package Anarres::Mud::Driver::Efun::MudOS::map;
+	use Anarres::Mud::Driver::Program::Type qw(:types);
+	sub foo_typecheck_call {
+		my ($self, $program, $values, @rest) = @_;
+		my $val = $values->[1];
+		my $func = $values->[2];
+
+		$func = $func->infer(T_CLOSURE);
+		unless ($func) {
+			$program->error("Argument 2 to map must be a closure.");
+		}
+
+		if (my $arr = $val->infer(T_ARRAY)) {
+			# $values->[0] = "(pointer to map_array)";
+			$values->[1] = $arr;
+			$arr->typecheck($program, undef, @rest) unless $arr == $val;
+			return $arr->type;
+		}
+		elsif (my $map = $val->infer(T_MAPPING)) {
+			# $values->[0] = "(pointer to map_mapping)";
+			$values->[1] = $map;
+			$map->typecheck($program, undef, @rest) unless $map == $val;
+			return $map->type;
+		}
+		else {
+			$program->error("Argument 1 to map must be a mapping " .
+							"or an array.");
+			return undef;
+		}
+	}
 }
 
 1;
