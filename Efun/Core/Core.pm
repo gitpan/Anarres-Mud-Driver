@@ -4,9 +4,9 @@ use strict;
 use warnings;
 use vars qw($VERSION @ISA);
 
-use Anarres::Mud::Driver::Compiler::Type qw(:types);
-# use Anarres::Mud::Driver::Compiler::Method qw(:flags);
-# use Anarres::Mud::Driver::Program::Efun qw(register);
+# XXX Where should I be requiring these: before or after bootstrap?
+
+use Anarres::Mud::Driver::Compiler::Type;
 
 # Efuns need to be normal functions in a program symbol table but
 # will not inherit or issue a warning if redefined.
@@ -26,9 +26,9 @@ $VERSION = 0.10;
 
 bootstrap Anarres::Mud::Driver::Efun::Core;
 
-use Anarres::Mud::Driver::Compiler::Type qw(:types);
+use Anarres::Mud::Driver::Compiler::Type;
 use Anarres::Mud::Driver::Program::Efun qw(register);
-use Anarres::Mud::Driver::Program::Method qw(:flags);
+use Anarres::Mud::Driver::Program::Method;
 
 {
 	# As traditional, [ flags, return type, argtype .... ]
@@ -141,6 +141,11 @@ use Anarres::Mud::Driver::Program::Method qw(:flags);
 	foreach (keys %efuns) {
 		register(__PACKAGE__ . "::" . $_, @{ $efuns{$_} });
 	}
+}
+
+{
+	package Anarres::Mud::Driver::Efun::Core::time;
+	sub generate_call { "time()" }
 }
 
 {
@@ -259,7 +264,7 @@ use Anarres::Mud::Driver::Program::Method qw(:flags);
 
 {
 	package Anarres::Mud::Driver::Efun::Core::regexp;
-	sub generate_call { "XXX($_[1] =~ /$_[2]/)" }
+	sub generate_call { "XXX($_[1] =~ m/$_[2]/)" }
 }
 
 {
@@ -317,7 +322,7 @@ use Anarres::Mud::Driver::Program::Method qw(:flags);
 
 {
 	package Anarres::Mud::Driver::Efun::Core::copy;
-	sub invoke { $_[1] }
+	sub invoke { $_[1] }	# XXX dclone - but not for objects.
 }
 
 {
@@ -352,7 +357,7 @@ use Anarres::Mud::Driver::Program::Method qw(:flags);
 
 {
 	package Anarres::Mud::Driver::Efun::Core::map;
-	use Anarres::Mud::Driver::Compiler::Type qw(:types);
+	use Anarres::Mud::Driver::Compiler::Type;
 	sub typecheck_call {
 		my ($self, $program, $values, @rest) = @_;
 		my $val = $values->[1];

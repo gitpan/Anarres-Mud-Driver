@@ -11,11 +11,11 @@ WriteMakefile(
 	PREREQ_PM     => {
 					# 5.006001			=> 0,
 					String::Escape		=> 2002.001,
-					Parse::Yapp::Driver	=> 1.05,
+					# Parse::Yapp::Driver	=> 1.05,
 					File::Basename		=> 0,
 					Storable			=> 1.014,
 					Time::HiRes			=> 0,
 				}, # e.g., Module::Name => 1.1
-	DIR				=> [ qw(lib Compiler Interpreter Efun) ],
+	DIR				=> [ qw(lib Type Efun Compiler Interpreter) ],
 	OPTIMIZE		=> '-O2 -g -Wall',
 );

@@ -1,8 +1,9 @@
-#include "EXTERN.h"
-#include "perl.h"
-#include "XSUB.h"
+#include <EXTERN.h>
+#include <perl.h>
+#include <XSUB.h>
 #include "compiler.h"
 #include "parser.h"
+#include "../Type/type.h"
 
 /* Apparently we are expected to provide this type as named. */
 
@@ -22,89 +23,58 @@ struct _keyword_t
 }
 keyword_t;
 
-#define NOLVAL	{ .number = 0 }
+#define LVAL_NONE		{ .number = 0 }
+#define LVAL_S1(x)		{ .str = { x, 0 } }
+#define LVAL_S2(x, y)	{ .str = { x, y, 0 } }
 
-#define define_T_(x) static const char	T_## x[]	= { C_ ## x, 0 }
-
-define_T_(VOID);
-// define_T_(NIL);
-define_T_(UNKNOWN);
-define_T_(BOOL);
-define_T_(CLOSURE);
-define_T_(INTEGER);
-define_T_(OBJECT);
-define_T_(STRING);
-// define_T_(M_ARRAY);
-// define_T_(M_MAPPING);
-define_T_(FAILED);
-
-static const char T_ARRAY[]	= { C_M_ARRAY, C_UNKNOWN, 0 };
-static const char T_MAPPING[]	= { C_M_MAPPING, C_UNKNOWN, 0 };
+	/* We have to allocate static storage for all of these. */
+static const char LVAL_BOOL[] = { C_BOOL, 0 };
+static const char LVAL_CLOSURE[] = { C_CLOSURE, 0 };
+static const char LVAL_INTEGER[] = { C_INTEGER, 0 };
+static const char LVAL_MAPPING[] = { C_M_MAPPING, C_UNKNOWN, 0 };
+static const char LVAL_UNKNOWN[] = { C_UNKNOWN, 0 };
+static const char LVAL_OBJECT[] = { C_OBJECT, 0 };
+static const char LVAL_STRING[] = { C_STRING, 0 };
+static const char LVAL_VOID[] = { C_VOID, 0 };
 
 static keyword_t keywords[] = {
-	{ "bool",		L_BASIC_TYPE,		{ .str = T_BOOL } },
-	{ "break",		L_BREAK,			NOLVAL },
-	{ "case",		L_CASE,				NOLVAL },
-	{ "class",		L_CLASS,			NOLVAL },
-	{ "continue",	L_CONTINUE,			NOLVAL },
-	{ "default",	L_DEFAULT,			NOLVAL },
-	{ "do",			L_DO,				NOLVAL },
-	{ "efun",		L_EFUN,				NOLVAL },
-	{ "else",		L_ELSE,				NOLVAL },
-	{ "for",		L_FOR,				NOLVAL },
-	{ "foreach",	L_FOREACH,			NOLVAL },
-	{ "function",	L_BASIC_TYPE,		{ .str = T_CLOSURE } },
-	{ "if",			L_IF,				NOLVAL },
-	{ "in",			L_IN,				NOLVAL },
-	{ "inherit",	L_INHERIT,			NOLVAL },
-	{ "int",		L_BASIC_TYPE,		{ .str = T_INTEGER } },
-	{ "mapping",	L_BASIC_TYPE,		{ .str = T_MAPPING } },
-	{ "mixed",		L_BASIC_TYPE,		{ .str = T_UNKNOWN } },
-	{ "nil",		L_NIL,				NOLVAL },
-	{ "new",		L_NEW,				NOLVAL },
-	{ "nomask",		L_TYPE_MODIFIER,	NOLVAL },
-	{ "nosave",		L_TYPE_MODIFIER,	NOLVAL },
-	{ "object",		L_BASIC_TYPE,		{ .str = T_OBJECT } },
-	{ "private",	L_TYPE_MODIFIER,	NOLVAL },
-	{ "protected",	L_TYPE_MODIFIER,	NOLVAL },
-	{ "public",		L_TYPE_MODIFIER,	NOLVAL },
-	{ "return",		L_RETURN,			NOLVAL },
-	{ "rlimits",	L_RLIMITS,			NOLVAL },
-	{ "sscanf",		L_SSCANF,			NOLVAL },
-	{ "string",		L_BASIC_TYPE,		{ .str = T_STRING } },
-	// { "static",		L_TYPE_MODIFIER,	NOLVAL },
-	{ "switch",		L_SWITCH,			NOLVAL },
-	{ "varargs",	L_TYPE_MODIFIER,	NOLVAL },
-	{ "virtual",	L_TYPE_MODIFIER,	NOLVAL },
-	{ "void",		L_VOID,				{ .str = T_VOID } },
-	{ "while",		L_WHILE,			NOLVAL },
+	{ "bool",		L_BASIC_TYPE,		{ .str = LVAL_BOOL } },
+	{ "break",		L_BREAK,			LVAL_NONE },
+	{ "case",		L_CASE,				LVAL_NONE },
+	{ "class",		L_CLASS,			LVAL_NONE },
+	{ "continue",	L_CONTINUE,			LVAL_NONE },
+	{ "default",	L_DEFAULT,			LVAL_NONE },
+	{ "do",			L_DO,				LVAL_NONE },
+	{ "efun",		L_EFUN,				LVAL_NONE },
+	{ "else",		L_ELSE,				LVAL_NONE },
+	{ "for",		L_FOR,				LVAL_NONE },
+	{ "foreach",	L_FOREACH,			LVAL_NONE },
+	{ "function",	L_BASIC_TYPE,		{ .str = LVAL_CLOSURE } },
+	{ "if",			L_IF,				LVAL_NONE },
+	{ "in",			L_IN,				LVAL_NONE },
+	{ "inherit",	L_INHERIT,			LVAL_NONE },
+	{ "int",		L_BASIC_TYPE,		{ .str = LVAL_CLOSURE } },
+	{ "mapping",	L_BASIC_TYPE,		{ .str = LVAL_MAPPING } },
+	{ "mixed",		L_BASIC_TYPE,		{ .str = LVAL_UNKNOWN } },
+	{ "nil",		L_NIL,				LVAL_NONE },
+	{ "new",		L_NEW,				LVAL_NONE },
+	{ "nomask",		L_TYPE_MODIFIER,	{ .number = M_NOMASK } },
+	{ "nosave",		L_TYPE_MODIFIER,	{ .number = M_NOSAVE } },
+	{ "object",		L_BASIC_TYPE,		{ .str = LVAL_OBJECT } },
+	{ "private",	L_TYPE_MODIFIER,	{ .number = M_PRIVATE } },
+	{ "protected",	L_TYPE_MODIFIER,	{ .number = M_PROTECTED } },
+	{ "public",		L_TYPE_MODIFIER,	{ .number = M_PUBLIC } },
+	{ "return",		L_RETURN,			LVAL_NONE },
+	{ "rlimits",	L_RLIMITS,			LVAL_NONE },
+	{ "sscanf",		L_SSCANF,			LVAL_NONE },
+	{ "string",		L_BASIC_TYPE,		{ .str = LVAL_STRING } },
+	{ "static",		L_TYPE_MODIFIER,	{ .number = M_STATIC } },
+	{ "switch",		L_SWITCH,			LVAL_NONE },
+	{ "varargs",	L_TYPE_MODIFIER,	{ .number = M_VARARGS } },
+	// { "virtual",	L_TYPE_MODIFIER,	{ .number = M_VIRTUAL } },
+	{ "void",		L_VOID,				{ .str = LVAL_VOID } },
+	{ "while",		L_WHILE,			LVAL_NONE },
 };
-
-SV *
-amd_type_lookup(const char *str)
-{
-	SV      **svp;
-
-	svp = hv_fetch(amd_typetab, str, strlen(str), FALSE);
-	if (svp)
-		return *svp;
-
-	croak("Type %s not found in registry!\n", str);
-	return &PL_sv_undef;
-	return sv_2mortal(sv_bless(
-			newRV_noinc(newSVpv(str, 0)),
-					gv_stashpv(_AMD "::Compiler::Type", TRUE)));
-
-}
-
-
-#define CS(x) do { code[0] = C_ ## x; \
-			sv = newSVpv(code, 0); \
-			sv = newRV_noinc(sv); \
-			sv_bless(sv, stash); \
-			hv_store(amd_typetab, code, strlen(code), sv, 0); \
-			newCONSTSUB(stash, "T_" #x, sv); \
-				} while(0);
 
 MODULE = Anarres::Mud::Driver::Compiler	PACKAGE = Anarres::Mud::Driver::Compiler
 
@@ -139,51 +109,8 @@ BOOT:
 		}
 	}
 
-	if (0) {
-		AV	*nodetypes;
-
-		nodetypes = get_av(_AMD "::Compiler::Node::NODETYPES", FALSE);
-		if (!nodetypes)
-			croak("No nodetypes!\n");
-	}
-
 	{
-		HV	*stash;
-		SV	*sv;
-		char code[2];
-
-		printf("Creating constant subs for type\n");
-
-		stash = gv_stashpv(_AMD "::Compiler::Type", TRUE);
-		code[1] = '\0';
-
-		amd_typetab = newHV();
-
-		CS(VOID);
-		CS(NIL);
-		CS(UNKNOWN);
-		CS(BOOL);
-		CS(CLOSURE);
-		CS(INTEGER);
-		CS(OBJECT);
-		CS(STRING);
-		CS(M_ARRAY);
-		CS(M_MAPPING);
-		CS(M_CLASS);
-
-		CS(FAILED);
-
-		sv = sv_bless(newRV_noinc(newSVpv(T_ARRAY, 2)), stash);
-		hv_store(amd_typetab, T_ARRAY, strlen(T_ARRAY), sv, 0);
-		newCONSTSUB(stash, "T_ARRAY", sv);
-
-		sv = sv_bless(newRV_noinc(newSVpv(T_MAPPING, 2)), stash);
-		hv_store(amd_typetab, T_MAPPING, strlen(T_MAPPING), sv, 0);
-		newCONSTSUB(stash, "T_MAPPING", sv);
-	}
-
-	{
-		/* And having set up much of the 'type' stuff: */
+		/* The parser needs these to build the tree. */
 		amd_require(_AMD "::Compiler::Type");
 		amd_require(_AMD "::Compiler::Node");
 		amd_require(_AMD "::Program");
@@ -224,89 +151,3 @@ DESTROY(self)
 	Anarres::Mud::Driver::Compiler	self
 	CODE:
 		Safefree(self);
-
-MODULE = Anarres::Mud::Driver::Compiler	PACKAGE = Anarres::Mud::Driver::Compiler::Type
-
-void
-compatible(self, arg)
-	Anarres::Mud::Driver::Compiler::Type	self
-	Anarres::Mud::Driver::Compiler::Type	arg
-	CODE:
-		{
-			/* This actually returns a boolean */
-
-			if (!*arg)
-				croak("arg is not a valid type: it is empty");
-
-			while (*self) {
-				if (*arg == *self) {
-					self++;
-					arg++;
-					continue;
-				}
-				else if (*arg == C_UNKNOWN) {
-					XSRETURN_YES;
-				}
-				else {	/* Including !*arg */
-					XSRETURN_NO;
-				}
-			}
-
-			/* If we get here, then the two types were identical.
-			 * However, a class name may be an initial substring of
-			 * another class name, therefore we must check identity
-			 * here. */
-
-			if (*arg)
-				XSRETURN_NO;
-
-			XSRETURN_YES;
-		}
-
-SV *
-unify(self, arg)
-	Anarres::Mud::Driver::Compiler::Type	self
-	Anarres::Mud::Driver::Compiler::Type	arg
-	CODE:
-		{
-			int		 len;
-			SV		*out;
-
-			len = 0;
-			while (self[len]) {
-				if (self[len] == arg[len])
-					len++;
-				else
-					break;
-			}
-
-			if (self[len] == C_NIL) {
-				/* Anything unifies with a 'nil' */
-				out = newSVpv(arg, 0);
-			}
-			else if (arg[len] == C_NIL) {
-				/* Anything unifies with a 'nil' */
-				out = newSVpv(self, 0);
-			}
-			else if ((arg[len] == C_BOOL || arg[len] == C_INTEGER) &&
-					(self[len] == C_BOOL || self[len] == C_INTEGER)) {
-				out = newSVpvn(self, len);
-				sv_catpvn(out, T_INTEGER, strlen(T_INTEGER));
-			}
-			else if (!self[len]) {
-				/* The two types were equal? Or the serialised
-				 * class 'self' was a substring of 'arg', which is
-				 * probably also fine depending on the format. */
-				out = newSVpvn(self, len);
-			}
-			else {
-				out = newSVpvn(self, len);
-				/* This is not correct for a class. */
-				sv_catpvn(out, T_UNKNOWN, strlen(T_UNKNOWN));
-			}
-
-			RETVAL = sv_bless(newRV_noinc(out),
-							gv_stashpv(_AMD "::Compiler::Type", TRUE));
-		}
-	OUTPUT:
-		RETVAL

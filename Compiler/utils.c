@@ -34,8 +34,9 @@ amd_require(const char *package)
 
 	sv = get_sv("@", FALSE);
 	if (SvTRUE(sv)) {
-		croak("%s\n%s", SvPV_nolen(sv),
-						"Compilation failed in amd_require in utils.c");
+		croak("Compilation failed in amd_require(%s):\n%s",
+						package,
+						SvPV_nolen(sv));
 	}
 }
 

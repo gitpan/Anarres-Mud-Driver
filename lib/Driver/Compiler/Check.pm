@@ -1,11 +1,13 @@
 package Anarres::Mud::Driver::Compiler::Check;
 
 use strict;
-use vars qw(@ISA @EXPORT_OK %EXPORT_TAGS %OPTYPETABLE);
+use vars qw(@ISA @EXPORT_OK %OPTYPETABLE %OPCHECKTABLE);
 use Carp qw(:DEFAULT cluck);
 use Data::Dumper;
-use Anarres::Mud::Driver::Compiler::Type qw(:all);
+use Anarres::Mud::Driver::Compiler::Type;
 use Anarres::Mud::Driver::Compiler::Node qw(:all);
+
+push(@Anarres::Mud::Driver::Compiler::Node::ISA, __PACKAGE__);
 
 # nodepackage, rettype, arg0type, arg1type, ...
 %OPTYPETABLE = (
@@ -151,6 +153,12 @@ use Anarres::Mud::Driver::Compiler::Node qw(:all);
 					),
 		);
 
+%OPCHECKTABLE = (
+	Integer		=> {
+			Const	=> "1;",		# *const = eval qq{ sub { $_ }; };
+				},
+);
+
 # print Dumper(\%OPTYPETABLE);
 
 q[
@@ -161,12 +169,14 @@ q[
 		StmtBreak StmtContinue StmtReturn
 ] if 0;
 
+sub lvaluep { undef; }
+sub constp { undef; }
 
 sub promote_to_block {
 	my ($self, $index) = @_;
 	my $stmt = $self->value($index);
 	unless (ref($stmt) =~ /::Block$/) {
-		confess "Can only convert statements into blocks, not " . $stmt
+		confess "Can only convert statements into blocks, not $stmt"
 						unless ref($stmt) =~ /::Stmt\w+$/;
 		# It's a statement.
 		my $block = new Anarres::Mud::Driver::Compiler::Node::Block(
@@ -278,8 +288,7 @@ sub check {
 		return 1;
 	}
 
-	print "Auto typechecking " . $self->nodetype . "\n"
-					if $DEBUG & TYPECHECKNAME;
+	$self->debug(DBG_TC_NAME, "Auto typechecking " . $self->nodetype);
 
 	my $op = $self->nodetype;
 	my @values = $self->values;
@@ -323,8 +332,8 @@ OPTYPE:
 			splice(@$self, 2, $#$self, @tvals);
 			$self->settype($rettype);
 			my $package = ref($self);
-			$package =~ s/::[^:]*$//;
-			bless $self, $package . "::" . $pack;
+			$package =~ s/::[^:]*$/::$pack/;
+			bless $self, $package;
 
 			return 1;
 		}
@@ -363,7 +372,6 @@ OPTYPE:
 
 {
 	package Anarres::Mud::Driver::Compiler::Node::String;
-	use String::Escape qw(quote printable);
 	sub check {$_[0]->settype(T_STRING); $_[0]->setflag(F_CONST); 1;}
 }
 
@@ -390,7 +398,7 @@ OPTYPE:
 		my ($self, $program, @rest) = @_;
 
 		my @values = $self->values;
-		$self->check_children(\@values, $program,@rest)
+		$self->check_children(\@values, $program, @rest)
 						or return $self->check_fail;
 
 		my $flag = F_CONST;
@@ -414,7 +422,7 @@ OPTYPE:
 		my ($self, $program, @rest) = @_;
 
 		my @values = $self->values;
-		$self->check_children(\@values, $program,@rest)
+		$self->check_children(\@values, $program, @rest)
 						or return $self->check_fail;
 
 		my $ret = 1;
@@ -466,12 +474,12 @@ OPTYPE:
 
 {
 	package Anarres::Mud::Driver::Compiler::Node::Variable;
+	sub lvaluep { 1; }
 	# Look up type
 	sub check {
 		my ($self, $program, @rest) = @_;
 		my $name = $self->value(0);
-		print "Typechecking Variable $name\n"
-					if $DEBUG & TYPECHECKNAME;
+		$self->debug(DBG_TC_NAME, "Typechecking Variable $name");
 		my ($var, $class);
 		if ($var = $program->local($name)) {
 			$class = 'Anarres::Mud::Driver::Compiler::Node::VarLocal';
@@ -511,8 +519,8 @@ OPTYPE:
 		my @values = $self->values;
 		my $method = shift @values;
 
-		print "Typechecking Funcall to " . $method->name . "\n"
-					if $DEBUG & TYPECHECKNAME;
+		$self->debug(DBG_TC_NAME,
+				"Typechecking Funcall to " . $method->name);
 
 		# print Dumper($method);
 
@@ -554,8 +562,7 @@ OPTYPE:
 	sub check {
 		my ($self, $program, @rest) = @_;
 		my ($exp, $name, @values) = $self->values;
-		print "Typechecking CallOther\n"
-					if $DEBUG & TYPECHECKNAME;
+		$self->debug(DBG_TC_NAME, "Typechecking CallOther");
 		unshift(@values, $exp);
 		$self->check_children(\@values, $program, @rest)
 						or return $self->check_fail;
@@ -567,11 +574,18 @@ OPTYPE:
 
 {
 	package Anarres::Mud::Driver::Compiler::Node::Index;
+	sub lvaluep {
+		if ($_[0]->value(0)->lvaluep) {
+			$_[0]->setflag(F_LVALUE);
+			return 1;
+		}
+		return undef;
+	}
+
 	sub check {
 		my ($self, $program, @rest) = @_;
 		my ($exp, $idx, $ep) = $self->values;
-		print "Typechecking Index\n"
-					if $DEBUG & TYPECHECKNAME;
+		$self->debug(DBG_TC_NAME, "Typechecking Index");
 		my $values = [ $exp, $idx ];
 		$self->check_children($values, $program, @rest)
 						or return $self->check_fail;
@@ -582,30 +596,26 @@ OPTYPE:
 		}
 		$self->setvalue(1, $idx_i);
 
-		my $exp_s = $exp->promote(T_STRING);
-		if ($exp_s) {
+		my $type = $exp->type;
+
+		if ($type->equals(T_STRING)) {
 			bless $self,
 					"Anarres::Mud::Driver::Compiler::Node::StrIndex";
-			$self->setvalue(0, $exp_s);
 			$self->settype(T_INTEGER);
 			return 1;
 		}
 
-		my $exp_a = $exp->promote(T_ARRAY);
-		if ($exp_a) {
+		if ($type->is_array) {
 			bless $self,
 					"Anarres::Mud::Driver::Compiler::Node::ArrIndex";
-			$self->setvalue(0, $exp_a);
-			$self->settype($exp_a->dereference);
+			$self->settype($type->dereference);
 			return 1;
 		}
 
-		my $exp_m = $exp->promote(T_ARRAY);
-		if ($exp_m) {
+		if ($type->is_mapping) {
 			bless $self,
 					"Anarres::Mud::Driver::Compiler::Node::MapIndex";
-			$self->setvalue(0, $exp_m);
-			$self->settype($exp_m->dereference);
+			$self->settype($type->dereference);
 			return 1;
 		}
 
@@ -622,8 +632,7 @@ OPTYPE:
 	sub check {
 		my ($self, $program, @rest) = @_;
 		my ($exp, $left, $right, $lendp, $rendp) = $self->values;
-		print "Typechecking Range\n"
-					if $DEBUG & TYPECHECKNAME;
+		$self->debug(DBG_TC_NAME, "Typechecking Range");
 		my $values = [ $exp, $left, $right ];
 		$self->check_children($values, $program, @rest)
 						or return $self->check_fail;
@@ -665,6 +674,14 @@ OPTYPE:
 
 {
 	package Anarres::Mud::Driver::Compiler::Node::Member;
+	sub lvaluep {
+		if ($_[0]->value(0)->lvaluep) {
+			$_[0]->setflag(F_LVALUE);
+			return 1;
+		}
+		return undef;
+	}
+
 	# XXX Do this!
 	sub check {
 		my ($self, $program, $flags, @rest) = @_;
@@ -683,6 +700,14 @@ OPTYPE:
 		return 1;
 	}
 }
+
+# 1. Promote things to blocks.
+# 2. Check children
+# 3. Check that things are lvalues.
+# 4. Check that things are appropriate types.
+# 5. Rebless the current node.
+# 6. Set the type of the current node.
+# 7. Return a success or failure.
 
 {
 	package Anarres::Mud::Driver::Compiler::Node::Sscanf;
@@ -703,7 +728,7 @@ OPTYPE:
 		}
 		$self->setvalue(0, $sexp);
 
-		my $sfmt = $fmt->infer(T_STRING);
+		my $sfmt = $fmt->promote(T_STRING);
 		unless ($sfmt) {
 			$program->error("Format for sscanf must be string, not " .
 							$fmt->type->dump);
@@ -750,8 +775,7 @@ foreach ( qw(Postinc Postdec Preinc Predec) ) {
 		my ($self, $program, $flags, @rest) = @_;
 		my ($lval, $exp) = $self->values;
 
-		print "Typechecking Assign\n"
-					if $DEBUG & TYPECHECKNAME;
+		$self->debug(DBG_TC_NAME, "Typechecking Assign");
 
 		# XXX Work more on lvalues ...
 		unless ($lval->check($program, $flags | F_LVALUE, @rest)) {
@@ -782,6 +806,26 @@ foreach ( qw(Postinc Postdec Preinc Predec) ) {
 	}
 }
 
+# AddEq - string/string or int/int
+{
+	package Anarres::Mud::Driver::Compiler::Node::AddEq;
+	sub check {
+		my ($self, $program, $flags, @rest) = @_;
+		my ($lval, $rval) = $self->values;
+
+		$self->debug(DBG_TC_NAME, "Typechecking AddEq");
+
+		my $ret = 1;
+		$lval->check($program, $flags | F_LVALUE, @rest)
+						or $ret = undef;
+		$rval->check($program, $flags, @rest)
+						or $ret = undef;
+		# XXX Do something with the types here.
+		$self->settype($lval->type->unify($rval->type));
+		return $ret;
+	}
+}
+
 foreach (qw(SubEq MulEq DivEq ModEq XorEq LshEq RshEq)) {
 	my $code = q[
 		{
@@ -790,8 +834,7 @@ foreach (qw(SubEq MulEq DivEq ModEq XorEq LshEq RshEq)) {
 				my ($self, $program, $flags, @rest) = @_;
 				my ($lval, $rval) = $self->values;
 
-				print "Typechecking ] . $_ . q[\n"
-							if $DEBUG & TYPECHECKNAME;
+				$self->debug(DBG_TC_NAME, "Typechecking ] . $_ . q[");
 
 				my $ret = 1;
 				$lval->check($program, $flags | F_LVALUE, @rest)
@@ -815,8 +858,71 @@ foreach (qw(SubEq MulEq DivEq ModEq XorEq LshEq RshEq)) {
 }
 
 # AndEq OrEq 	- arrays or ints
-# AddEq - string/string or int/int
-# StrAddEq StrMulEq	- strings
+foreach (qw(AndEq OrEq)) {
+	my $code = q[
+		{
+			package Anarres::Mud::Driver::Compiler::Node::] . $_ . q[;
+			sub check {
+				my ($self, $program, $flags, @rest) = @_;
+				my ($lval, $rval) = $self->values;
+
+				$self->debug(DBG_TC_NAME, "Typechecking ] . $_ . q[");
+
+				my $ret = 1;
+				$lval->check($program, $flags | F_LVALUE, @rest)
+								or $ret = undef;
+				$rval->check($program, $flags, @rest)
+								or $ret = undef;
+				# XXX Do something with the types here.
+				$self->settype($lval->type->unify($rval->type));
+				return $ret;
+			}
+		}
+	];
+	eval $code;
+	die $@ if $@;
+}
+
+
+# StrAddEq		- string + string
+{
+	package Anarres::Mud::Driver::Compiler::Node::StrAddEq;
+	sub check {
+		my ($self, $program, $flags, @rest) = @_;
+		my ($lval, $rval) = $self->values;
+
+		$self->debug(DBG_TC_NAME, "Typechecking StrAddEq");
+
+		my $ret = 1;
+		$lval->check($program, $flags | F_LVALUE, @rest)
+						or $ret = undef;
+		$rval->check($program, $flags, @rest)
+						or $ret = undef;
+		# XXX Do something with the types here.
+		$self->settype($lval->type->unify($rval->type));
+		return $ret;
+	}
+}
+
+# StrMulEq		- string x integer
+{
+	package Anarres::Mud::Driver::Compiler::Node::StrMulEq;
+	sub check {
+		my ($self, $program, $flags, @rest) = @_;
+		my ($lval, $rval) = $self->values;
+
+		$self->debug(DBG_TC_NAME, "Typechecking StrMulEq");
+
+		my $ret = 1;
+		$lval->check($program, $flags | F_LVALUE, @rest)
+						or $ret = undef;
+		$rval->check($program, $flags, @rest)
+						or $ret = undef;
+		# XXX Do something with the types here.
+		$self->settype($lval->type->unify($rval->type));
+		return $ret;
+	}
+}
 
 foreach (qw(LogOrEq LogAndEq)) {
 	my $code = q[
@@ -826,8 +932,7 @@ foreach (qw(LogOrEq LogAndEq)) {
 				my ($self, $program, $flags, @rest) = @_;
 				my ($lval, $rval) = $self->values;
 
-				print "Typechecking ] . $_ . q[\n"
-							if $DEBUG & TYPECHECKNAME;
+				$self->debug(DBG_TC_NAME, "Typechecking ] . $_ . q[");
 
 				my $ret = 1;
 				$lval->check($program, $flags | F_LVALUE, @rest)
@@ -851,8 +956,7 @@ foreach (qw(LogOrEq LogAndEq)) {
 		my ($self, $program, @rest) = @_;
 		my ($left, $right) = $self->values;
 
-		print "Typechecking ExpComma\n"
-					if $DEBUG & TYPECHECKNAME;
+		$self->debug(DBG_TC_NAME, "Typechecking ExpComma");
 
 		my $ret = 1;
 		$left->check($program, @rest)
@@ -871,8 +975,7 @@ foreach (qw(LogOrEq LogAndEq)) {
 		my @locals = @{ $self->value(0) };
 		my @stmts  = @{ $self->value(1) };
 
-		print "Typechecking Block\n"
-					if $DEBUG & TYPECHECKNAME;
+		$self->debug(DBG_TC_NAME, "Typechecking Block");
 
 		$program->save_locals;
 		foreach (@locals) {
@@ -901,8 +1004,7 @@ foreach (qw(LogOrEq LogAndEq)) {
 	sub check {
 		my ($self, $program, $flags, @rest) = @_;
 		my $ret;
-		print "Typechecking StmtForeach\n"
-					if $DEBUG & TYPECHECKNAME;
+		$self->debug(DBG_TC_NAME, "Typechecking StmtForeach");
 		$self->promote_to_block(3);
 		my ($lval0, $lval1, $arr, $block) = $self->values;
 		$lval0->check($program, $flags|F_LVALUE, @rest)
@@ -923,8 +1025,7 @@ foreach (qw(LogOrEq LogAndEq)) {
 	package Anarres::Mud::Driver::Compiler::Node::StmtFor;
 	sub check {
 		my ($self, $program, $flags, @rest) = @_;
-		print "Typechecking StmtFor\n"
-					if $DEBUG & TYPECHECKNAME;
+		$self->debug(DBG_TC_NAME, "Typechecking StmtFor");
 		$self->promote_to_block(3);	# XXX Do this in a precheck?
 		my @values = $self->values;
 		$self->check_children(\@values, $program, $flags, @rest)
@@ -938,8 +1039,7 @@ foreach (qw(LogOrEq LogAndEq)) {
 	package Anarres::Mud::Driver::Compiler::Node::StmtDo;
 	sub check {
 		my ($self, $program, $flags, @rest) = @_;
-		print "Typechecking StmtWhile\n"
-					if $DEBUG & TYPECHECKNAME;
+		$self->debug(DBG_TC_NAME, "Typechecking StmtDo");
 		$self->promote_to_block(1);	# XXX Do this in a precheck?
 		my @values = $self->values;
 		$self->check_children(\@values, $program, $flags, @rest)
@@ -953,8 +1053,7 @@ foreach (qw(LogOrEq LogAndEq)) {
 	package Anarres::Mud::Driver::Compiler::Node::StmtWhile;
 	sub check {
 		my ($self, $program, $flags, @rest) = @_;
-		print "Typechecking StmtWhile\n"
-					if $DEBUG & TYPECHECKNAME;
+		$self->debug(DBG_TC_NAME, "Typechecking StmtWhile");
 		$self->promote_to_block(1);	# XXX Do this in a precheck?
 		my @values = $self->values;
 		$self->check_children(\@values, $program, $flags, @rest)
@@ -969,8 +1068,7 @@ foreach (qw(LogOrEq LogAndEq)) {
 	sub check {
 		my ($self, $program, @rest) = @_;
 		my ($exp, $block) = $self->values;
-		print "Typechecking StmtSwitch\n"
-					if $DEBUG & TYPECHECKNAME;
+		$self->debug(DBG_TC_NAME, "Typechecking StmtSwitch");
 		my $endswitch = $program->start_switch;
 		$self->setvalue(2, $endswitch);		# end of switch
 		my $ret = $self->check_children([$exp,$block], $program, @rest);
@@ -988,8 +1086,7 @@ foreach (qw(LogOrEq LogAndEq)) {
 	sub check {
 		my ($self, $program, $flags, @rest) = @_;
 		my ($left, $right) = $self->values;
-		print "Typechecking StmtCase\n"
-					if $DEBUG & TYPECHECKNAME;
+		$self->debug(DBG_TC_NAME, "Typechecking StmtCase");
 		my $vals = $right ? [ $left, $right ] : [ $left ];
 		$self->check_children($vals, $program, $flags|F_CONST, @rest)
 						or return undef;
@@ -1019,8 +1116,7 @@ foreach (qw(LogOrEq LogAndEq)) {
 	package Anarres::Mud::Driver::Compiler::Node::StmtDefault;
 	sub check {
 		my ($self, $program, @rest) = @_;
-		print "Typechecking StmtDefault\n"
-					if $DEBUG & TYPECHECKNAME;
+		$self->debug(DBG_TC_NAME, "Typechecking StmtDefault");
 		$self->setvalue(0, $program->default);	# XXX do in postcheck?
 		$self->settype(T_VOID);
 		return 1;
@@ -1031,8 +1127,7 @@ foreach (qw(LogOrEq LogAndEq)) {
 	package Anarres::Mud::Driver::Compiler::Node::StmtBreak;
 	sub check {
 		my ($self, $program, @rest) = @_;
-		print "Typechecking StmtBreak\n"
-					if $DEBUG & TYPECHECKNAME;
+		$self->debug(DBG_TC_NAME, "Typechecking StmtBreak");
 		$self->setvalue(0, $program->getbreaktarget);	# XXX postcheck?
 		$self->settype(T_VOID);
 		return 1;
@@ -1051,8 +1146,7 @@ foreach (qw(LogOrEq LogAndEq)) {
 			}
 		}
 		my ($cond, $if, $else) = $self->values;
-		print "Typechecking StmtIf\n"
-					if $DEBUG & TYPECHECKNAME;
+		$self->debug(DBG_TC_NAME, "Typechecking StmtIf");
 		$cond->check($program, @rest)
 						or $ret = undef;
 
@@ -1086,8 +1180,7 @@ foreach (qw(LogOrEq LogAndEq)) {
 	package Anarres::Mud::Driver::Compiler::Node::StmtReturn;
 	sub check {
 		my ($self, $program, @rest) = @_;
-		print "Typechecking StmtReturn\n"
-					if $DEBUG & TYPECHECKNAME;
+		$self->debug(DBG_TC_NAME, "Typechecking StmtReturn");
 		my $val = $self->value(0);
 		if ($val) {
 			$val->check($program, @rest)
@@ -1102,8 +1195,7 @@ foreach (qw(LogOrEq LogAndEq)) {
 	package Anarres::Mud::Driver::Compiler::Node::StmtTry;
 	sub check {
 		my ($self, $program, $flags, @rest) = @_;
-		print "Typechecking StmtTry\n"
-					if $DEBUG & TYPECHECKNAME;
+		$self->debug(DBG_TC_NAME, "Typechecking StmtTry");
 		my ($try, $lval, $catch) = $self->values;
 		my $vals = [ $try, $catch ];
 		my $ret = 1;

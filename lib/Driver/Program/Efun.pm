@@ -5,7 +5,9 @@ use vars qw(@ISA @EXPORT_OK %EFUNS %EFUNFLAGS);
 use Data::Dumper;
 use Carp;
 use Exporter;
-use Anarres::Mud::Driver::Program::Method qw(:flags);
+use Anarres::Mud::Driver::Program::Variable;
+use Anarres::Mud::Driver::Program::Method;
+use Anarres::Mud::Driver::Compiler::Type;
 
 @ISA = qw(Anarres::Mud::Driver::Program::Method);
 @EXPORT_OK = qw(register efuns efunflags);

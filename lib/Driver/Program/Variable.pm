@@ -7,6 +7,8 @@ use Exporter;
 
 @ISA = qw(Exporter);
 
+# Stuff gets put into Export from Compiler.xs
+
 # New representation will be [ Type, Flags, Name, Args, Code ]
 # Args and Code are only relevant for Method objects.
 

@@ -16,6 +16,7 @@ L_COLONCOLON L_ARROW L_RANGE L_ELLIPSIS
 #endif
 
 #include "compiler.h"
+#include "../Type/type.h"
 
 #define YYPARSE_PARAM	yyparse_param
 #define YYLEX_PARAM		yyparse_param
@@ -105,26 +106,69 @@ yyparse_node(char *type,
 	FREETMPS;
 	LEAVE;
 
+	// sv_2mortal(node);	/* This segfaults it at the moment. */
+
 	return node;
 }
 
+/* We have to make sure that 'type' coming into here is PV not RV */
 static SV *
-yyparse_type(SV *type, SV *stars)
+yyparse_type(const char *type, SV *stars)
 {
-	/* XXX If the star_list is empty, return type with a new ref */
-	sv_catsv(stars, SvRV(type));
-	/* Really, we should call a constructor here. */
+	static SV	*class = NULL;
+	SV			*sv;
+	dSP;
+	int			 count;
+	SV			*node;
+
+	if (!class) {
+		class = newSVpv(_AMD "::Compiler::Type", 0);
+	}
+
+	sv = newSVpv(type, 0);
+	sv_catsv(sv, stars);
+
+	ENTER;
+	SAVETMPS;
+	PUSHMARK(SP);
+
+	XPUSHs(class);
+	XPUSHs(sv);		/* Does this get freed? */
+
+	PUTBACK;
+	count = call_method("new", G_SCALAR);
+	SPAGAIN;
+	if (count != 1)
+		croak("Didn't get a return value from constructing Variable\n");
+	node = POPs;
+	PUTBACK;
+
+	SvREFCNT_inc(node);
+
+	FREETMPS;
+	LEAVE;
+
+	/* In the outer scope. Let's hope this doesn't get dested. */
+	sv_2mortal(node);
+
+	return node;
+
+#if 0
 	return sv_bless(newRV_noinc(stars),
 			gv_stashpv(_AMD "::Compiler::Type", TRUE));
+#endif
 }
 
+/* Can I pass mods as a primitive integer, and not bother if they
+ * are zero? This applies to functions as well. */
 static SV *
-yyparse_variable(SV *name, SV *type, SV *stars, SV *mods)
+yyparse_variable(SV *name, const char *type, SV *stars, SV *mods)
 {
 	static SV	*class = NULL;
 	static SV	*k_type = NULL;
 	static SV	*k_name = NULL;
 	static SV	*k_flags = NULL;
+	SV			*newtype;
 	dSP;
 	int			 count;
 	SV			*node;
@@ -136,7 +180,7 @@ yyparse_variable(SV *name, SV *type, SV *stars, SV *mods)
 		k_flags = newSVpv("Flags", 0);
 	}
 
-	type = yyparse_type(type, stars);
+	newtype = yyparse_type(type, stars);
 
 	ENTER;
 	SAVETMPS;
@@ -144,7 +188,7 @@ yyparse_variable(SV *name, SV *type, SV *stars, SV *mods)
 
 	XPUSHs(class);
 	XPUSHs(k_type);
-	XPUSHs(type);	/* XXX sv_2mortal */
+	XPUSHs(newtype);
 	XPUSHs(k_name);
 	XPUSHs(name);
 	XPUSHs(k_flags);
@@ -167,13 +211,15 @@ yyparse_variable(SV *name, SV *type, SV *stars, SV *mods)
 }
 
 static SV *
-yyparse_method(SV *name, SV *type, SV *stars, SV *args, SV *mods)
+yyparse_method(SV *name, const char *type, SV *stars,
+				SV *args, SV *mods)
 {
 	static SV	*class = NULL;
 	static SV	*k_type = NULL;
 	static SV	*k_name = NULL;
 	static SV	*k_args = NULL;
 	static SV	*k_flags = NULL;
+	SV			*newtype;
 	dSP;
 	int			 count;
 	SV			*node;
@@ -186,7 +232,7 @@ yyparse_method(SV *name, SV *type, SV *stars, SV *args, SV *mods)
 		k_flags = newSVpv("Flags", 0);
 	}
 
-	type = yyparse_type(type, stars);
+	newtype = yyparse_type(type, stars);
 
 	// printf("Start of yyparse_method\n");
 
@@ -196,7 +242,7 @@ yyparse_method(SV *name, SV *type, SV *stars, SV *args, SV *mods)
 
 	XPUSHs(class);
 	XPUSHs(k_type);
-	XPUSHs(type);	/* XXX sv_2mortal */
+	XPUSHs(newtype);
 	XPUSHs(k_name);
 	XPUSHs(name);
 	XPUSHs(k_args);
@@ -340,6 +386,10 @@ yyparse_program_apply(amd_parse_param_t *param,
 	SV			*sv;
 	SV			*obj;
 	AV			*av;
+	struct _assoc_t {
+		SV	*key;
+		SV	*value;
+	} 			 assoc;
 }
 
 %{
@@ -360,8 +410,10 @@ int yylex(YYSTYPE *yylval, amd_parse_param_t *param);
 %type <av> variable_declarator_init variable_declarator_list_init
 
 %type <str> L_VOID L_BASIC_TYPE
-	/* Both of these are SvPVs. */
-%type <sv> type_specifier star_list
+	/* This might point into an SvPV in the type cache. */
+%type <str> type_specifier
+	/* An SvPV. */
+%type <sv> star_list
 %type <number> opt_endrange
 %type <number> type_modifier_list L_TYPE_MODIFIER
 
@@ -373,7 +425,7 @@ int yylex(YYSTYPE *yylval, amd_parse_param_t *param);
 %type <sv> L_IDENTIFIER identifier
 %type <obj> function_name
 
-%type <sv> assoc_exp
+%type <assoc> assoc_exp
 %type <av> arg_list opt_arg_list opt_arg_list_comma
 %type <av> assoc_arg_list opt_assoc_arg_list_comma
 %type <av> array mapping
@@ -503,7 +555,7 @@ function_prologue
 		: type_modifier_list type_specifier function_declarator
 		{
 			SV	*method;
-			SV	*type;
+			const char	*type;
 			SV	*stars;
 			SV	*name;
 			SV	*args;
@@ -737,11 +789,15 @@ opt_arg_list_comma
 assoc_exp
 		: exp ':' exp	/* Check nonvoid */
 		{
+			$$.key = $1;
+			$$.value = $3;
+			/*
 			AV	*av;
 			av = newAV();
 			av_push(av, $1);
 			av_push(av, $3);
 			$$ = newRV_noinc((SV *)av);
+			*/
 		}
 	;
 
@@ -749,11 +805,13 @@ assoc_arg_list
 		: assoc_exp
 		{
 			$$ = newAV();
-			av_push($$, $1);
+			av_push($$, $1.key);
+			av_push($$, $1.value);
 		}
 		| assoc_arg_list ',' assoc_exp
 		{
-			av_push($1, $3);
+			av_push($1, $3.key);
+			av_push($1, $3.value);
 			$$ = $1;
 		}
 	;
@@ -1145,7 +1203,7 @@ global_decl
 			AV		*vdl;
 			AV		*vd;
 			SV		*name;
-			SV		*type;
+			const char		*type;
 			SV		*stars;
 			SV		*var;
 
@@ -1211,7 +1269,7 @@ local_decl
 			AV		*vdl;
 			AV		*vd;
 			SV		*name;
-			SV		*type;
+			const char		*type;
 			SV		*stars;
 			SV		*var;
 
@@ -1287,7 +1345,7 @@ class_member
 			AV		*vdl;
 			AV		*vd;
 			SV		*name;
-			SV		*type;
+			const char		*type;
 			SV		*stars;
 			SV		*var;
 
@@ -1352,7 +1410,7 @@ argument_list
 argument
 		: type_specifier variable_declarator
 		{
-			SV	*type;
+			const char	*type;
 			SV	*stars;
 			SV	*name;
 
@@ -1382,19 +1440,30 @@ type_modifier_list
 			;
 	 */
 
+	/* XXX IMMEDIATE: Make this return a const char * all the
+	 * way up to yyparse_type */
 type_specifier
 		: L_BASIC_TYPE
 		{
-			$$ = amd_type_lookup($1);
+			$$ = $1;
 		}
 		| L_VOID
 		{
-			$$ = amd_type_lookup($1);
+			$$ = $1;
 		}
 		| L_CLASS identifier
 		{
+			/* XXX FIXME
 			$$ = yyparse_program_apply(yyparse_param,
 								"class_type", $2, &PL_sv_undef);
+			*/
+			/* As long as I don't free the underlying SV,
+			 * I could just use SvPV here. We can't free the
+			 * original type since it'll be in the type cache.
+			 * Don't free the type cache while in the parser.
+			 * Do the apply, then call SvPV_nolen(SvRV(x)) on it.
+			 */
+			$$ = "${}";
 		}
 	;
 
@@ -1505,8 +1574,8 @@ yyparser_parse(SV *program, const char *str)
 	amd_parse_param_t	 param;
 	int					 ret;
 
-	fprintf(stderr, "Start of yyparser_parse\n");
-	fflush(stderr);
+	// fprintf(stderr, "Start of yyparser_parse\n");
+	// fflush(stderr);
 
 	memset(&param, 0, sizeof(param));
 	param.program = program;

@@ -15,6 +15,9 @@ WriteMakefile(
 	C				=> \@src,
 	H				=> \@hdr,
 
+	# Remove this and let it inherit for production
+	# OPTIMIZE		=> '-O2 -g -Wall',
+
 	clean			=> {
 				FILES	=> "lex.yy.c lexer.c " .
 							"parser.output parser.tab.[ch] " .

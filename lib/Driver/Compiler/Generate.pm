@@ -4,9 +4,11 @@ use strict;
 use Carp qw(:DEFAULT cluck);
 use Exporter;
 use Data::Dumper;
-use Anarres::Mud::Driver::Compiler::Type qw(:types);
+use Anarres::Mud::Driver::Compiler::Type;
 use Anarres::Mud::Driver::Compiler::Node qw(@NODETYPES);
 use Anarres::Mud::Driver::Compiler::Check qw(:flags);
+
+push(@Anarres::Mud::Driver::Compiler::Node::ISA, __PACKAGE__);
 
 my %ASSERTTABLE = (
 	IntAssert	=> '+do { my ($__a) = ((A)); ' .

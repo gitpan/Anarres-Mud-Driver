@@ -1,6 +1,6 @@
-#include "EXTERN.h"
-#include "perl.h"
-#include "XSUB.h"
+#include <EXTERN.h>
+#include <perl.h>
+#include <XSUB.h>
 
 MODULE = Anarres::Mud::Driver::Efun::Core PACKAGE = Anarres::Mud::Driver::Efun::Core
 

@@ -4,7 +4,7 @@ use strict;
 use Carp qw(:DEFAULT cluck);
 use Exporter;
 use Data::Dumper;
-use Anarres::Mud::Driver::Compiler::Type qw(:all);
+use Anarres::Mud::Driver::Compiler::Type;
 use Anarres::Mud::Driver::Compiler::Node qw(@NODETYPES);
 
 sub nodetype {
@@ -16,8 +16,8 @@ sub dumptype {
 	my $self = shift;
 	return "" unless $self->type;
 	my $flags =
-			$self->flags & F_CONST  ? "C" : "" .
-			$self->flags & F_LVALUE ? "L" : "" ;
+			$self->flags & F_CONST  ? "z" : "" .
+			$self->flags & F_LVALUE ? "=" : "" ;
 	return "[" . $flags . $self->type->dump(@_) . "] ";
 }
 

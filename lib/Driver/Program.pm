@@ -7,8 +7,9 @@ use Carp qw(:DEFAULT cluck);
 use Data::Dumper;
 use File::Basename;
 use String::Escape qw(quote printable);
-use Anarres::Mud::Driver::Compiler::Type qw(:all);
-use Anarres::Mud::Driver::Program::Method qw(:flags);
+use Anarres::Mud::Driver::Compiler::Type;
+use Anarres::Mud::Driver::Program::Variable;
+use Anarres::Mud::Driver::Program::Method;
 use Anarres::Mud::Driver::Program::Efun qw(efuns efunflags);
 
 @ISA = qw(Exporter);

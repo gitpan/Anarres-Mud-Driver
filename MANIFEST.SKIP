@@ -16,6 +16,7 @@ CVS/.*
 \.zip$
 _uu$
 \.swp$
+/old/
 
 ^local/
 test\.pl$

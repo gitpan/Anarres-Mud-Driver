@@ -3,26 +3,11 @@
 
 #include <stdarg.h>
 
-#include "EXTERN.h"
-#include "perl.h"
-#include "XSUB.h"
+#include <EXTERN.h>
+#include <perl.h>
+#include <XSUB.h>
 
 #include "amd.h"
-
-
-#define C_VOID			'v'
-#define C_NIL			'n'
-#define C_UNKNOWN		'?'
-#define C_BOOL			'b'
-#define C_CLOSURE		'f'
-#define C_INTEGER		'i'
-#define C_OBJECT		'o'
-#define C_STRING		's'
-#define C_M_CLASS		'$'
-#define C_M_ARRAY		'*'
-#define C_M_MAPPING		'#'
-
-#define C_FAILED		'!'
 
 
 
@@ -34,11 +19,8 @@ void amd_require(const char *package);
 
 
 	/* Provided by Compiler.xs */
-SV *amd_type_lookup(const char *str);
-
 HV		*amd_kwtab;
 HV		*amd_lvaltab;
-HV		*amd_typetab;
 
 
 

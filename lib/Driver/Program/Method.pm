@@ -1,39 +1,14 @@
 package Anarres::Mud::Driver::Program::Method;
 
 use strict;
-use vars qw(@ISA @EXPORT_OK %EXPORT_TAGS);
-# use overload '""' => sub { "AMD::Method(" . $_[0]->name . ")" };
+use vars qw(@ISA @EXPORT);
 use Data::Dumper;
 use Carp qw(cluck);
 use Anarres::Mud::Driver::Program::Variable;
+use Anarres::Mud::Driver::Compiler::Type;
 
 @ISA = qw(Anarres::Mud::Driver::Program::Variable);
-@EXPORT_OK = qw(M_NOMASK M_NOSAVE
-				M_PRIVATE M_PROTECTED M_PUBLIC
-				M_VARARGS
-				M_EFUN M_INHERITED M_HIDDEN M_PURE M_UNKNOWN);
-%EXPORT_TAGS = (
-		flags	=> \@EXPORT_OK,
-		all		=> \@EXPORT_OK,
-			);
-
-	# Some of these belong to the function, some belong to the program
-	# in which it is declared. All except 'inherited' can be attached
-	# to the function. (or variable)
-sub M_NOMASK	() { 0x0001 } 
-sub M_NOSAVE	() { 0x0002 } 
-sub M_PRIVATE	() { 0x0004 } 
-sub M_PROTECTED	() { 0x0008 } 
-sub M_PUBLIC	() { 0x0010 } 
-
-sub M_VARARGS	() { 0x0020 } 
-
-sub M_EFUN		() { 0x0100 } 
-sub M_INHERITED	() { 0x0200 } 
-sub M_APPLY		() { 0x0400 } 
-sub M_HIDDEN	() { 0x0800 } 
-sub M_PURE		() { 0x1000 } 
-sub M_UNKNOWN	() { 0x2000 } 
+*EXPORT = \@Anarres::Mud::Driver::Program::Variable::EXPORT;
 
 sub args { return $_[0]->{Args}; }
 
