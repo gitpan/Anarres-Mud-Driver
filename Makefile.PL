@@ -4,8 +4,8 @@ use ExtUtils::MakeMaker;
 # the contents of the Makefile that is written.
 WriteMakefile(
     NAME          => 'Anarres::Mud::Driver',
-    VERSION_FROM  => 'lib/Anarres/Mud/Driver.pm', # finds $VERSION
-    ABSTRACT_FROM => 'lib/Anarres/Mud/Driver.pm', # finds $VERSION
+    VERSION_FROM  => 'lib/Driver.pm', # finds $VERSION
+    ABSTRACT_FROM => 'lib/Driver.pm',
     AUTHOR        => 'Shevek (cpan@anarres.org)',
     # ABSTRACT      => 'Module abstract'
 	PREREQ_PM     => {
@@ -16,5 +16,6 @@ WriteMakefile(
 					Storable			=> 1.014,
 					Time::HiRes			=> 0,
 				}, # e.g., Module::Name => 1.1
-
+	DIR				=> [ qw(lib Compiler Interpreter Efun) ],
+	OPTIMIZE		=> '-O2 -g -Wall',
 );
