@@ -1,13 +1,32 @@
 package Anarres::Mud::Driver::Program::Method;
 
 use strict;
-use vars qw(@ISA @EXPORT_OK);
+use vars qw(@ISA @EXPORT_OK %EXPORT_TAGS);
 use Data::Dumper;
 use Carp qw(cluck);
-use Anarres::Mud::Driver::Compiler::Lex qw(%TYPETAB);
 use Anarres::Mud::Driver::Program::Variable;
 
 @ISA = qw(Anarres::Mud::Driver::Program::Variable);
+@EXPORT_OK = qw(M_NOMASK M_NOSAVE
+				M_PRIVATE M_PROTECTED M_PUBLIC
+				M_VARARGS
+				M_EFUN M_INHERITED M_PURE);
+%EXPORT_TAGS = (
+		flags	=> \@EXPORT_OK,
+		all		=> \@EXPORT_OK,
+			);
+
+sub M_NOMASK    () { 0x001 } 
+sub M_NOSAVE    () { 0x002 } 
+sub M_PRIVATE   () { 0x004 } 
+sub M_PROTECTED () { 0x008 } 
+sub M_PUBLIC    () { 0x010 } 
+
+sub M_VARARGS   () { 0x020 } 
+
+sub M_EFUN      () { 0x100 } 
+sub M_INHERITED () { 0x200 } 
+sub M_PURE      () { 0x400 } 
 
 #sub new {
 #	my $class = shift;
@@ -46,7 +65,7 @@ sub typecheck {
 		$program->error("No code in method " . $self->name);
 	}
 	$program->restore_locals;
-	# print $self->dump, "\n";
+	print $self->dump, "\n";
 }
 
 sub dump {

@@ -15,7 +15,7 @@ use String::Escape qw( unquote unprintable );
 use Data::Dumper;
 use Anarres::Mud::Driver::Compiler::Symbol;
 use Anarres::Mud::Driver::Program::Type qw(:types);
-use Anarres::Mud::Driver::Program qw(:flags);
+use Anarres::Mud::Driver::Program::Method qw(:flags);
 
 @ISA = qw(Exporter);
 @EXPORT_OK = qw(%TYPETAB);

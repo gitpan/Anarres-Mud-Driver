@@ -7,34 +7,18 @@ use Carp qw(:DEFAULT cluck);
 use Data::Dumper;
 use File::Basename;
 use String::Escape qw(quote printable);
-use Anarres::Mud::Driver::Program::Efun qw(%EFUNS);
+use Anarres::Mud::Driver::Program::Method qw(:flags);
+use Anarres::Mud::Driver::Program::Efun qw(%EFUNS %EFUNFLAGS);
 
 @ISA = qw(Exporter);
-{
-	my @flags = qw(M_NOMASK M_NOSAVE
-					M_PRIVATE M_PROTECTED M_PUBLIC
-					M_VARARGS);
-	@EXPORT_OK = (@flags, qw(package_to_path path_to_package));
-	%EXPORT_TAGS = (
-		flags	=> \@flags,
-		q[:ALL]	=> \@EXPORT_OK,
-			);
-}
+@EXPORT_OK = (qw(package_to_path path_to_package));
+%EXPORT_TAGS = (
+	all	=> \@EXPORT_OK,
+		);
 
 %PROGS = (
 	"/foo/bar"	=> new Anarres::Mud::Driver::Program(Path=>"/foo/bar"),
 		);
-
-sub M_NOMASK	() { 0x001 }
-sub M_NOSAVE	() { 0x002 }
-sub M_PRIVATE	() { 0x004 }
-sub M_PROTECTED	() { 0x008 }
-sub M_PUBLIC	() { 0x010 }
-
-sub M_VARARGS	() { 0x020 }
-
-sub M_EFUN		() { 0x100 }
-sub M_INHERITED	() { 0x200 }
 
 # Class methods
 
@@ -50,7 +34,7 @@ sub new {
 	$self->{Labels} = { };
 	$self->{LabelDefault} = undef;
 	$self->{Methods} = { %EFUNS };
-	$self->{MethodFlags} = { map { $_ => M_EFUN } keys %EFUNS };
+	$self->{MethodFlags} = { %EFUNFLAGS };
 
 	$self->{ScopeStack} = [ ];
 	$self->{LabelStack} = [ ];
@@ -119,7 +103,6 @@ sub variable {
 
 sub closure {
 	my ($self, $clousure) = @_;
-
 	return (push(@{ $self->{Closures} }, $clousure) - 1);
 }
 
@@ -173,6 +156,7 @@ sub default {
 	return ($self->{LabelDefault} = $self->label(undef));
 }
 
+# XXX This should return something else if we're in a loop.
 sub getbreaktarget {
 	$_[0]->{EndSwitch};
 }

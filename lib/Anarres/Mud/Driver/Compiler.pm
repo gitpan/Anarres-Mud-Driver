@@ -13,7 +13,9 @@ BEGIN {
 
 use Anarres::Mud::Driver;
 use Anarres::Mud::Driver::Compiler::Preprocess;
+use Anarres::Mud::Driver::Compiler::Lex;
 use Anarres::Mud::Driver::Compiler::Parse;
+use Anarres::Mud::Driver::Program;
 
 sub new {
 	my $class = shift;
@@ -96,7 +98,7 @@ sub compile {
 
 	$prog->typecheck;
 
-	# print $prog->dump, "\n";
+	print $prog->dump, "\n";
 
 	print "\n\n---\n\n";
 

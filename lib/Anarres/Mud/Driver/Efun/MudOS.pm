@@ -3,7 +3,7 @@ package Anarres::Mud::Driver::Efun::MudOS;
 use strict;
 use vars qw(@ISA);
 use Anarres::Mud::Driver::Program::Type qw(:types);
-use Anarres::Mud::Driver::Program::Node qw(:flags);
+use Anarres::Mud::Driver::Program::Method qw(:flags);
 use Anarres::Mud::Driver::Program::Efun qw(register);
 
 # Efuns need to be normal functions in a program symbol table but
@@ -15,39 +15,40 @@ use Anarres::Mud::Driver::Program::Efun qw(register);
 
 {
 	# As traditional, [ flags, return type, argtype .... ]
+	my $pflags = M_PURE | M_NOMASK;
 	my %efuns = (
 		# Object stuff
 
 		this_object		=> [ 0,		T_OBJECT, ],
 		previous_object	=> [ 0,		T_OBJECT, T_INTEGER, ],
 		all_previous_objects	=>[ 0, T_OBJECT->pointer ],
-		file_name		=> [ PURE,	T_STRING, T_OBJECT, ],
-		find_object		=> [ PURE,	T_OBJECT, T_STRING, ],
-		load_object		=> [ PURE,	T_OBJECT, T_STRING, ],
-		clone_object	=> [ PURE,	T_OBJECT, T_STRING, ],
+		file_name		=> [ M_PURE,	T_STRING, T_OBJECT, ],
+		find_object		=> [ M_PURE,	T_OBJECT, T_STRING, ],
+		load_object		=> [ M_PURE,	T_OBJECT, T_STRING, ],
+		clone_object	=> [ M_PURE,	T_OBJECT, T_STRING, ],
 		destruct		=> [ 0,		T_INTEGER, T_OBJECT, ],
 		children		=> [ 0,		T_OBJECT->pointer, T_STRING, ],
 		objects			=> [ 0,		T_OBJECT->pointer, ],
 
 		# String stuff
 
-		implode		=> [ PURE,	T_STRING, T_STRING->pointer, T_STRING ],
-		explode		=> [ PURE,  T_STRING->pointer, T_STRING, T_STRING ],
-		lower_case		=> [ PURE,	T_STRING, T_STRING, ],
-		upper_case		=> [ PURE,	T_STRING, T_STRING, ],
-		strlen			=> [ PURE,	T_INTEGER, T_STRING, ],
-		replace_string	=> [ PURE,	T_STRING, T_STRING, T_STRING, T_STRING, ],
-		capitalize		=> [ PURE,	T_STRING, ],
-		strsrch			=> [ PURE,	T_INTEGER, T_STRING, T_STRING, ],
-		regexp			=> [ PURE,	T_INTEGER, T_STRING, T_STRING, ],
+		implode		=> [ M_PURE, T_STRING, T_STRING->pointer, T_STRING ],
+		explode		=> [ M_PURE, T_STRING->pointer, T_STRING, T_STRING ],
+		lower_case		=> [ M_PURE, T_STRING, T_STRING, ],
+		upper_case		=> [ M_PURE, T_STRING, T_STRING, ],
+		strlen			=> [ M_PURE, T_INTEGER, T_STRING, ],
+		replace_string	=> [ M_PURE, T_STRING, T_STRING, T_STRING, T_STRING, ],
+		capitalize		=> [ M_PURE, T_STRING, ],
+		strsrch			=> [ M_PURE, T_INTEGER, T_STRING, T_STRING, ],
+		regexp			=> [ M_PURE, T_INTEGER, T_STRING, T_STRING, ],
 
-		sprintf			=> [ PURE,	T_STRING, T_STRING, T_ARRAY, ],
-		sscanf			=> [ PURE,	T_STRING, T_STRING, T_ARRAY, ],
+		sprintf			=> [ M_PURE, T_STRING, T_STRING, T_ARRAY, ],
+		sscanf			=> [ M_PURE, T_STRING, T_STRING, T_ARRAY, ],
 
 		# Array stuff
 
-		member_array	=> [ PURE,	T_INTEGER, T_MIXED, T_ARRAY, ],
-		unique_array	=> [ PURE,	T_ARRAY->pointer, T_MIXED, T_ARRAY],
+		member_array	=> [ M_PURE, T_INTEGER, T_MIXED, T_ARRAY, ],
+		unique_array	=> [ M_PURE, T_ARRAY->pointer, T_MIXED, T_ARRAY],
 			# XXX We can map mappings. :-(
 		map				=> [ 0,		T_ARRAY, T_ARRAY, T_CLOSURE, ],
 		filter			=> [ 0,		T_ARRAY, T_ARRAY, T_CLOSURE, ],
@@ -55,25 +56,25 @@ use Anarres::Mud::Driver::Program::Efun qw(register);
 
 		# Mapping stuff
 
-		keys			=> [ PURE,	T_STRING->pointer, T_MAPPING, ],
-		values			=> [ PURE,	T_ARRAY, T_MAPPING, ],
+		keys			=> [ M_PURE,	T_STRING->pointer, T_MAPPING, ],
+		values			=> [ M_PURE,	T_ARRAY, T_MAPPING, ],
 
 		# Type stuff
 
-		to_int			=> [ PURE,	T_INTEGER, T_STRING, ],
-		to_string		=> [ PURE,	T_STRING, T_INTEGER, ],
-		typeof			=> [ PURE,	T_STRING, T_MIXED, ],
-		sizeof			=> [ PURE,	T_INTEGER, T_MIXED, ],
+		to_int			=> [ M_PURE,	T_INTEGER, T_STRING, ],
+		to_string		=> [ M_PURE,	T_STRING, T_INTEGER, ],
+		typeof			=> [ M_PURE,	T_STRING, T_MIXED, ],
+		sizeof			=> [ M_PURE,	T_INTEGER, T_MIXED, ],
 
-		intp			=> [ PURE,	T_BOOL, T_MIXED, ],
-		stringp			=> [ PURE,	T_BOOL, T_MIXED, ],
-		arrayp			=> [ PURE,	T_BOOL, T_MIXED, ],
-		mapp			=> [ PURE,	T_BOOL, T_MIXED, ],
-		functionp		=> [ PURE,	T_BOOL, T_MIXED, ],
-		classp			=> [ PURE,	T_BOOL, T_MIXED, ],
-		objectp			=> [ PURE,	T_BOOL, T_MIXED, ],
-		clonep			=> [ PURE,	T_BOOL, T_MIXED, ],
-		undefinedp		=> [ PURE,	T_BOOL, T_MIXED, ],
+		intp			=> [ $pflags,	T_BOOL, T_MIXED, ],
+		stringp			=> [ $pflags,	T_BOOL, T_MIXED, ],
+		arrayp			=> [ $pflags,	T_BOOL, T_MIXED, ],
+		mapp			=> [ $pflags,	T_BOOL, T_MIXED, ],
+		functionp		=> [ $pflags,	T_BOOL, T_MIXED, ],
+		classp			=> [ $pflags,	T_BOOL, T_MIXED, ],
+		objectp			=> [ $pflags,	T_BOOL, T_MIXED, ],
+		clonep			=> [ M_PURE,	T_BOOL, T_MIXED, ],
+		undefinedp		=> [ M_PURE,	T_BOOL, T_MIXED, ],
 
 		# Closure stuff
 
@@ -84,7 +85,7 @@ use Anarres::Mud::Driver::Program::Efun qw(register);
 		function_exists	=> [ 0,		T_OBJECT, T_STRING, T_INTEGER, ],
 		functions		=> [ 0,		T_OBJECT, T_INTEGER, ],
 		variables		=> [ 0,		T_OBJECT, T_INTEGER, ],
-		inherits		=> [ PURE,	T_INTEGER, T_STRING, T_OBJECT, ],
+		inherits		=> [ M_PURE,	T_INTEGER, T_STRING, T_OBJECT, ],
 		call_stack		=> [ 0,		T_STRING->pointer, T_INTEGER, ],
 
 		# File stuff
@@ -163,6 +164,22 @@ use Anarres::Mud::Driver::Program::Efun qw(register);
 }
 
 {
+	package Anarres::Mud::Driver::Efun::MudOS::explode;
+	# XXX This probably has to become an XSUB for compatability.
+	sub gencall { "split(quotemeta($_[2]), $_[1])" }
+}
+
+{
+	package Anarres::Mud::Driver::Efun::MudOS::replace_string;
+	# XXX This probably has to become an XSUB for compatability.
+}
+
+{
+	package Anarres::Mud::Driver::Efun::MudOS::intp;
+	sub gencall { "(defined($_[1]) && !ref($_[1]))" }
+}
+
+{
 	package Anarres::Mud::Driver::Efun::MudOS::stringp;
 	sub gencall { "(defined($_[1]) && !ref($_[1]))" }
 }
@@ -179,6 +196,11 @@ use Anarres::Mud::Driver::Program::Efun qw(register);
 
 {
 	package Anarres::Mud::Driver::Efun::MudOS::objectp;
+	sub gencall { "ref($_[1]) =~ /::/" }	# XXX
+}
+
+{
+	package Anarres::Mud::Driver::Efun::MudOS::clonep;
 	sub gencall { "ref($_[1]) =~ /::/" }	# XXX
 }
 
@@ -205,6 +227,53 @@ use Anarres::Mud::Driver::Program::Efun qw(register);
 {
 	package Anarres::Mud::Driver::Efun::MudOS::this_object;
 	sub gencall { '$self' }
+}
+
+{
+	package Anarres::Mud::Driver::Efun::MudOS::strsrch;
+	sub gencall { "index($_[1], $_[2])" }
+}
+
+{
+	package Anarres::Mud::Driver::Efun::MudOS::lower_case;
+	sub gencall { "lc($_[1])" }
+}
+
+{
+	package Anarres::Mud::Driver::Efun::MudOS::upper_case;
+	sub gencall { "uc($_[1])" }
+}
+
+{
+	package Anarres::Mud::Driver::Efun::MudOS::capitalize;
+	sub gencall { "ucfirst($_[1])" }
+}
+
+{
+	package Anarres::Mud::Driver::Efun::MudOS::allocate;
+	sub gencall {
+		my $val = defined $_[2] ? $_[2] : 'undef';
+		return "[ ($val) x $_[1] ]"
+	}
+}
+
+{
+	package Anarres::Mud::Driver::Efun::MudOS::to_int;
+	sub gencall { "(0 + ($_[1]))" }
+}
+
+{
+	package Anarres::Mud::Driver::Efun::MudOS::inherits;
+	sub gencall { "($_[2])->isa(XXX_to_package($_[1]))" }
+}
+
+{
+	package Anarres::Mud::Driver::Efun::MudOS::sizeof;
+	sub gencall { 'do { my $__a = ' . $_[1] . '; my $__r = ref($__a); '.
+			'$__r eq "ARRAY" ? scalar(@$__a) : ' .
+			'$__r eq "HASH" ? scalar(keys %$__a) : ' .
+			'$__r eq "" ? length($__a) : ' .	# XXX Deal with ints
+			'0 }' }
 }
 
 1;

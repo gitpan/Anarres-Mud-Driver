@@ -1,15 +1,16 @@
 package Anarres::Mud::Driver::Program::Efun;
 
 use strict;
-use vars qw(@ISA @EXPORT_OK %EFUNS);
+use vars qw(@ISA @EXPORT_OK %EFUNS %EFUNFLAGS);
 use Carp;
 use Exporter;
-use Anarres::Mud::Driver::Program::Method;
+use Anarres::Mud::Driver::Program::Method qw(:flags);
 
 @ISA = qw(Anarres::Mud::Driver::Program::Method);
-@EXPORT_OK = qw(register %EFUNS);
+@EXPORT_OK = qw(register %EFUNS %EFUNFLAGS);
 
 %EFUNS = ();
+%EFUNFLAGS = ();
 
 sub register {
 	my ($class, $flags, $rettype, @argtypes) = @_;
@@ -45,6 +46,7 @@ sub register {
 						);
 
 	$EFUNS{$efun} = $instance;
+	$EFUNFLAGS{$efun} = $flags | M_EFUN | M_INHERITED;
 
 }
 

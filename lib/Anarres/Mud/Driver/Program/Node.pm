@@ -3,25 +3,23 @@ package Anarres::Mud::Driver::Program::Node;
 use strict;
 use vars qw(@ISA @EXPORT_OK %EXPORT_TAGS
 				@NODETYPES
-				%OPTYPETABLE %OPCODETABLE
+				%HINTS
 				$DEBUG
 				);
 use Carp qw(:DEFAULT cluck);
 use Exporter;
 use Data::Dumper;
 # use Storable qw(dclone);
-use Anarres::Mud::Driver::Compiler::Lex;
 use Anarres::Mud::Driver::Program::Type qw(:types);
 use Anarres::Mud::Driver::Program::Efun qw(%EFUNS);
 
 sub CONST		()	{ 1 }
 sub LVALUE		()	{ 2 }
-sub PURE		()	{ 4 }
 
 sub TYPECHECKNAME	() { 1 }
 
 BEGIN {
-	my @FLAGS = qw(CONST LVALUE PURE);
+	my @FLAGS = qw(CONST LVALUE);
 	@ISA = qw(Exporter);
 	@EXPORT_OK = (@FLAGS,
 					qw(@NODETYPES $DEBUG TYPECHECKNAME
@@ -32,6 +30,7 @@ BEGIN {
 			);
 
 	$DEBUG = 0;
+	%HINTS = ();
 
 	# Vivify the relevant packages
 
@@ -192,7 +191,7 @@ sub infer {
 }
 
 # nodepackage, rettype, arg0type, arg1type, ...
-%OPTYPETABLE = (
+my %OPTYPETABLE = (
 	# Postinc Postdec Preinc Predec
 
 	# IntAssert StrAssert ArrAssert MapAssert ClsAssert ObjAssert
@@ -207,10 +206,11 @@ sub infer {
 	# String	=> [[ 'String', T_STRING, ], ],
 	# Integer	=> [[ 'Integer', T_INTEGER, ], ],
 	# Array	=> [[ 'Array', T_ARRAY, ], ],					# sub()?
-	Mapping	=> [[ 'Mapping', T_MAPPING, ], ],				# sub()?
-	Closure	=> [[ 'Closure', T_MAPPING, ], ],
+	# Mapping	=> [[ 'Mapping', T_MAPPING, ], ],			# sub()?
+	# Closure	=> [[ 'Closure', T_MAPPING, ], ],
 
-	Unot	=> [[ 'Unot', T_BOOL, T_MIXED, ], ],			# sub()?
+						# promote to bool by sub
+	Unot	=> [[ 'Unot', T_BOOL, T_BOOL, ], ],				# sub()?
 	Tilde	=> [[ 'Tilde', T_INTEGER, T_INTEGER, ], ],
 	Plus	=> [[ 'Plus', T_INTEGER, T_INTEGER, ], ],
 	Minus	=> [[ 'Minus', T_INTEGER, T_INTEGER, ], ],
@@ -220,10 +220,12 @@ sub infer {
 
 	Add		=> [[ 'IntAdd', T_INTEGER, T_INTEGER, T_INTEGER ],
 				[ 'StrAdd', T_STRING, T_STRING, T_STRING ],
+						# retval becomes sub
 				[ 'ArrAdd', T_ARRAY, T_ARRAY, T_ARRAY ],	# sub()?
 				[ 'MapAdd', T_MAPPING, T_MAPPING, T_MAPPING ],
 				],
 	Sub		=> [[ 'IntSub', T_INTEGER, T_INTEGER, T_INTEGER ],
+						# retval becomes sub
 				[ 'ArrSub', T_ARRAY, T_ARRAY, T_ARRAY ],	# sub()?
 				],
 	Mul		=> [[ 'IntMul', T_INTEGER, T_INTEGER, T_INTEGER ],
@@ -263,6 +265,9 @@ sub infer {
 				],
 
 	Index	=> [[ 'StrIndex', T_INTEGER, T_STRING, T_INTEGER ],
+					# XXX The next two are to be removed.
+				[ 'ArrIndex', T_INTEGER, T_INTEGER->pointer, T_INTEGER ],# sub()?
+				[ 'ArrIndex', T_STRING, T_STRING->pointer, T_INTEGER ],# sub()?
 				[ 'ArrIndex', T_MIXED, T_ARRAY, T_INTEGER ],# sub()?
 				[ 'MapIndex', T_MIXED, T_MAPPING, T_STRING ],# sub()?
 				],
@@ -358,27 +363,34 @@ sub typecheck {
 
 OPTYPE:
 	foreach (@{ $OPTYPETABLE{$op} }) {
-		my ($pack, $rettype, @argtypes) = @{$_};
-#		print "Template $op -> $pack has " . scalar(@argtypes) .
-#				" values\n";
-		next unless @argtypes == @values;
-
-		my $i = 0;
-		my @tvals = ();
-		foreach my $type (@argtypes) {
-			my $arg = $values[$i];
-			$iftable{$i . $$type} ||= $arg->infer($type);
-			next OPTYPE unless $iftable{$i . $$type};
-			push(@tvals, $iftable{$i . $$type});
-			$i++;
+		if (ref($_) eq 'CODE') {
+			if ($_->($self, \@values, \%iftable)) {
+				return 1;
+			}
 		}
+		elsif (ref($_) eq 'ARRAY') {
+			my ($pack, $rettype, @argtypes) = @{$_};
+#			print "Template $op -> $pack has " . scalar(@argtypes) .
+#					" values\n";
+			next unless @argtypes == @values;
 
-		# If we get here, we succeeded. Hack the node gratuitously.
-		splice(@$self, 2, $#$self, @tvals);
-		$self->settype($rettype);
-		bless $self, __PACKAGE__ . "::" . $pack;
+			my $i = 0;
+			my @tvals = ();
+			foreach my $type (@argtypes) {
+				my $arg = $values[$i];
+				$iftable{$i . $$type} ||= $arg->infer($type);
+				next OPTYPE unless $iftable{$i . $$type};
+				push(@tvals, $iftable{$i . $$type});
+				$i++;
+			}
 
-		return 1;
+			# If we get here, we succeeded. Hack the node gratuitously.
+			splice(@$self, 2, $#$self, @tvals);
+			$self->settype($rettype);
+			bless $self, __PACKAGE__ . "::" . $pack;
+
+			return 1;
+		}
 	}
 
 	# If we get here, we failed. Be verbose.
@@ -397,18 +409,21 @@ OPTYPE:
 	return undef;
 }
 
-%OPCODETABLE = (
+my %OPCODETABLE = (
 	# Can we tell the difference between strings and ints here?
 	# DConway says this tells us if it's an int:
 	# ($s_ref eq "" && defined $s_val && (~$s_val&$s_val) eq 0)
 
+	ExpNull		=> '',
+	StmtNull	=> '',
+
+	Nil			=> 'undef',
+
 	IntAssert	=> 'do { my ($__a) = ((A)); ' .
-					'die "Not integer at XXX" ' .
-							'if !defined($__a) || ref($__a); ' .
+					'die "Not integer at XXX" if ref($__a); ' .
 					'$__a; }',
 	StrAssert	=> 'do { my ($__a) = ((A)); ' .
-					'die "Not string at XXX" ' .
-							'if !defined($__a) || ref($__a); ' .
+					'die "Not string at XXX" if ref($__a); ' .
 					'$__a; }',
 	ArrAssert	=> 'do { my ($__a) = ((A)); ' .
 					'die "Not array at XXX" if ref($__a) ne "ARRAY"; '.
@@ -476,8 +491,9 @@ OPTYPE:
 	ArrRange	=> '[ (A)->[(B)..(C)] ]',
 
 					# eval the args once outside scope of $__* vars
-	StrRange	=> 'do { my ($__a, $__b, $__c) = ((A), (B), (C));
-					substr($__a, $__b, ($__c - $__b)) }',
+	StrRangeCst	=> 'substr(A, B, (C) - (B))',
+	StrRangeVar	=> 'do { my ($__a, $__b, $__c) = ((A), (B), (C)); ' .
+					'substr($__a, $__b, ($__c - $__b)) }',
 
 	ArrAdd		=> '[ @{A}, @{B} ]',
 	ArrSub		=> 'do { my %__a = map { $_ => 1 } @{B}; ' .
@@ -485,7 +501,7 @@ OPTYPE:
 
 	MapAdd		=> '{ %{A}, %{B} ]',
 
-	Assign		=> '(A) = (B)',
+	Assign		=> 'A = B',
 	Catch		=> '(eval { A; }, $@)',
 
 	StmtReturn	=> 'return A;',
@@ -502,17 +518,12 @@ OPTYPE:
 	StmtCatch	=> 'eval A;',					# A MudOS hack
 		);
 
-# "Refactor", I hear you say?
-# This needs a magic token for line number...
-sub generate {
-	my $self = shift;
-
-	my $name = $self->nodetype;
-	my $code = $OPCODETABLE{$name} or return "GEN($name)";
+sub gensub {
+	my ($self, $name, $code) = @_;
 
 	foreach ('A'..'F') {	# Say ...
 		my $arg = ord($_) - ord('A');
-		$code =~ s/\b$_\b/' . \$self->value($arg)->generate(\@_) . '/;
+		$code =~ s/\b$_\b/' . \$self->value($arg)->generate(\@_) . '/g;
 	}
 
 	$code = qq{ sub { my \$self = shift; return '$code'; } };
@@ -520,9 +531,22 @@ sub generate {
 	$code =~ s/'' \. //g;
 	$code =~ s/ \. ''//g;
 
-	# print "$name becomes $code\n";
+	print "$name becomes $code\n";
 	my $subref = eval $code;
 	die $@ if $@;
+	return $subref;
+}
+
+# "Refactor", I hear you say?
+# This needs a magic token for line number...
+sub generate {
+	my $self = shift;
+
+	my $name = $self->nodetype;
+	# print "Finding code for $name\n";
+	my $code = $OPCODETABLE{$name} or return "GEN($name)";
+
+	my $subref = $self->gensub($name, $code);
 
 	{
 		# Backpatch our original package.
@@ -597,13 +621,11 @@ sub t_string {	# Modifies its arguments
 {
 	package Anarres::Mud::Driver::Program::Node::ExpNull;
 	sub typecheck { $_[0]->settype(T_NIL); 1; }
-	sub generate { '' }
 }
 
 {
 	package Anarres::Mud::Driver::Program::Node::Nil;
 	sub typecheck { $_[0]->settype(T_NIL); $_[0]->setflag(CONST); 1; }
-	sub generate { "undef"; }
 }
 
 {
@@ -620,10 +642,10 @@ sub t_string {	# Modifies its arguments
 	sub typecheck {$_[0]->settype(T_INTEGER); $_[0]->setflag(CONST); 1;}
 	sub infer {
 		my ($self, $type, @rest) = @_;
-		
+
 		# Yes, a special case.
-		if ($type->equals(T_NIL)) {
-			if ($self->value(0) == 0) {	# A valid nil
+		if ($self->value(0) == 0) {	# A valid nil
+			unless ($type->equals(T_INTEGER)) {
 				return new Anarres::Mud::Driver::Program::Node::Nil;
 			}
 		}
@@ -847,12 +869,6 @@ sub t_string {	# Modifies its arguments
 		return 1;
 	}
 
-	sub old_new {
-		my (undef, $method, $args) = @_;
-		error "Method not found" unless $method;
-		return __PACKAGE__->SUPER::new($method->type, 0,$method,@$args);
-	}
-	# XXX Or assert
 	sub dump {
 		my $self = shift;
 		my @args = $self->values;
@@ -906,122 +922,61 @@ sub t_string {	# Modifies its arguments
 	}
 }
 
-# I could call this 'Index' and call IndexMap 'Lookup'
 {
 	package Anarres::Mud::Driver::Program::Node::Index;
-	# XXX Look up return type
-	sub old_new {
-		my (undef, $arr, $idx) = @_;
+}
 
-		my $at = $arr->type;
-		my $it = $idx->type;
+{
+	package Anarres::Mud::Driver::Program::Node::ArrIndex;
+}
 
-		my $temp;
+{
+	package Anarres::Mud::Driver::Program::Node::MapIndex;
+}
 
-		my $flags = $arr->flags & $idx->flags & CONST;
-		$flags |= LVALUE if $arr->flags & LVALUE;
-
-		if ($at->arrayp) {
-			$idx = $idx->infer(T_INTEGER);
-			error "Array index not integer" unless $idx;
-			return __PACKAGE__->SUPER::new(
-							$at->deref, $flags, $arr, $idx);
-		}
-		elsif ($at->equals(T_MAPPING)) {
-			# XXX Allow promotion of object?
-			$idx = $idx->infer(T_STRING);
-			error "Mapping index not string" unless $idx;
-			return new Anarres::Mud::Driver::Program::Node::IndexMap(
-							T_MIXED, $flags, $arr, $idx);
-		}
-		elsif ($at->equals(T_STRING)) {
-			$idx = $idx->infer(T_INTEGER);
-			error "String index not integer" unless $idx;
-			return new Anarres::Mud::Driver::Program::Node::IndexString(
-							T_INTEGER, $flags, $arr, $idx);
-		}
-		elsif ($temp = $arr->infer(T_ARRAY)) {
-			$idx = $idx->infer(T_INTEGER);
-			error "Array index not integer" unless $idx;
-			return __PACKAGE__->SUPER::new(
-							$at->deref, $flags, $temp, $idx);
-		}
-		elsif ($temp = $arr->infer(T_MAPPING)) {
-			# XXX Allow promotion of object?
-			$idx = $idx->infer(T_STRING);
-			error "Mapping index not string" unless $idx;
-			return new Anarres::Mud::Driver::Program::Node::IndexMap(
-							T_MIXED, $flags, $temp, $idx);
+{
+	package Anarres::Mud::Driver::Program::Node::StrRange;
+	# Don't do this!
+	sub generate_cst {
+		my $self = shift;
+		*generate_cst = $self->gensub('StrRange',
+						$OPCODETABLE{'StrRangeCst'});
+		return $self->generate_cst(@_);
+	}
+	sub generate_var {
+		my $self = shift;
+		*generate_var = $self->gensub('StrRange',
+						$OPCODETABLE{'StrRangeVar'});
+		return $self->generate_var(@_);
+	}
+	# XXX We need to check for lvalues around here. :-(
+	sub generate {
+		my $self = shift;
+		my $val = $self->value(1);
+		# Variables are unchanged across this operation.
+		# What we really mean here is, "Is it pure?"
+		# But that would not necessarily amount to an optimisation.
+		# A better question might be, "Is it elementary?"
+		if (ref($val) =~ /::Variable$/ || ($val->flags) & CONST) {
+			return $self->generate_cst(@_);
 		}
 		else {
-			error "Can only index mapping or array, not " .
-			$arr->type->dump;
+			return $self->generate_var(@_);
 		}
 	}
-	sub old_generate {
-		my $self = shift;
-		return $self->value(0)->generate(@_) . '->[' .
-				 $self->value(1)->generate(@_) . ']';
-	}
 }
 
 {
-	package Anarres::Mud::Driver::Program::Node::IndexMap;
-	sub infer { $_[0]->assert($_[1]) }
-	sub old_generate {
-		my $self = shift;
-		return $self->value(0)->generate(@_) . '->{' .
-				 $self->value(1)->generate(@_) . '}';
-	}
-}
-
-{
-	package Anarres::Mud::Driver::Program::Node::IndexString;
-}
-
-{
-	package Anarres::Mud::Driver::Program::Node::Range;
-	sub old_new {
-		my (undef, $val, $start, $end) = @_;
-
-		error "Start of range must be integer"
-			unless $start = $start->infer(T_INTEGER);
-		error "End of range must be integer"
-			unless $end = $end->infer(T_INTEGER);
-
-		my $str = $val->infer(T_STRING);
-		if ($str) {
-			return new Anarres::Mud::Driver::Program::Node::Substr(
-							T_STRING, 0, $str, $start, $end
-								);
-		}
-
-		my $arr = $val->infer(T_ARRAY);
-		if ($arr) {
-			return __PACKAGE__->SUPER::new(
-							$arr->type, 0, $arr, $start, $end
-								);
-		}
-
-		error "Range may only be applied to string or array, not " .
-						$val->type->dump;
-	}
-}
-
-{
-	package Anarres::Mud::Driver::Program::Node::Substr;
+	package Anarres::Mud::Driver::Program::Node::ArrRange;
 }
 
 {
 	package Anarres::Mud::Driver::Program::Node::Catch;
-	sub old_new { shift; return __PACKAGE__->SUPER::new(T_STRING, 0, @_); }
-	# sub infer { $_[0]->assert($_[1]) }
 }
 
 {
 	package Anarres::Mud::Driver::Program::Node::Sscanf;
 	# This should be $_[1], @{$_[2]}
-	sub old_new { shift; return __PACKAGE__->SUPER::new(T_INTEGER, 0, @_); }
 	sub typecheck {
 		my ($self, $program, $flags, @rest) = @_;
 		my ($exp, $fmt, @values) = $self->values;
@@ -1068,7 +1023,7 @@ foreach ( qw(Postinc Postdec Preinc Predec) ) {
 	eval qq[
 		{
 			package Anarres::Mud::Driver::Program::Node::$_;
-		] . q[
+	] . q[
 			sub typecheck {
 				my ($self, $program, $flags, @rest) = @_;
 				my $val = $self->value(0);
@@ -1093,22 +1048,30 @@ foreach ( qw(Postinc Postdec Preinc Predec) ) {
 
 {
 	package Anarres::Mud::Driver::Program::Node::Unot;
-	sub old_new {
-		my $val = $_[1];
+	sub typecheck {	# Interesting...
+		my ($self, $program, @rest) = @_;
 
+		my $val = $self->value(0);
+		$val->typecheck($program, @rest);
 		my $vt = $val->type;
 
 		if ($vt->equals(T_NIL)) {
-			warn "Expression always true due to type";
-			return new Anarres::Mud::Driver::Program::Node::Integer(1);
+			$program->warning("Expression always true due to type");
+			$self->setvalue(0, 1);
+			bless $self, "Anarres::Mud::Driver::Program::Node::Integer";
+			$self->typecheck($program, @rest);
 		}
-		elsif ($val = $val->infer(T_INTEGER)) {
-			return __PACKAGE__->SUPER::new(T_INTEGER, 0, $val);
+		elsif ($val = $val->infer(T_BOOL)) {
+			$self->setvalue(0, $val);
+			$val->typecheck($program, @rest) unless $val->type;
 		}
 		else {
-			warn "Expression always false due to type";
-			return new Anarres::Mud::Driver::Program::Node::Nil;
+			$program->error("Cannot convert " . ${$vt} . " to bool");
+			return undef;
 		}
+
+		$self->settype(T_BOOL);
+		return 1;
 	}
 }
 
@@ -1445,7 +1408,6 @@ foreach (qw(Or And Xor)) {
 {
 	package Anarres::Mud::Driver::Program::Node::StmtNull;
 	sub typecheck { $_[0]->settype(T_NIL); 1; }
-	sub generate { '' }
 }
 
 {
@@ -1531,9 +1493,18 @@ foreach (qw(Or And Xor)) {
 		my $labels = $self->value(3);
 		#              default label  or  end of switch
 		my $default = $self->value(4) || $self->value(2);
+
+		# Put this n program header?
+		my @hashdata =
+				map { $sep . "\t\t" .
+						$labels->{$_}->generate($indent, @_) .
+								"\t=> " . $_ . "," }
+						keys %{ $labels };
+		my $hashdata = join('', @hashdata);
+
 		return '{' .
 			$sep . '# ([v] switch ' . $dump . ')' .
-			$sep . 'my %LABELS = ();' .	# In program header?
+			$sep . 'my %LABELS = (' . $hashdata . ');' .
 			$sep . '# ' . join(", ", keys %{ $labels }) .
 			$sep . 'my $__a = ' . $exp->generate($indent, @_) . ';' .
 			$sep . 'exists $LABELS{$__a} ' .
@@ -1606,7 +1577,7 @@ foreach (qw(Or And Xor)) {
 	}
 	sub generate {
 		my $self = shift;
-		return $self->value(0) . ': # default';
+		return 'goto ' . $self->value(0) . '; # break';
 	}
 }
 
@@ -1632,9 +1603,12 @@ foreach (qw(Or And Xor)) {
 		my ($cond, $if, $else) = $self->values;
 		print "Typechecking StmtIf\n"
 					if $DEBUG & TYPECHECKNAME;
+		$cond->typecheck($program, @rest)
+						or return undef;
+		# Now we inspect $cond and set hints.
 		my $vals = defined $else
-				? [ $cond, $if, $else, ]
-				: [ $cond, $if, ];
+				? [ $if, $else, ]
+				: [ $if, ];
 		return $self->typecheckblock($vals, $program, @rest)
 						or return undef;
 		$_[0]->settype(T_VOID);
