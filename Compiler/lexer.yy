@@ -206,7 +206,6 @@ yyidentifier(YYSTYPE *lvalp, amd_parse_param_t *param)
 	SV	**svp;
 	SV	 *sv;
 	SV	**lvp;
-	SV	 *lv;
 
 #if 0
 	fprintf(stderr, "yyidentifier: %s\n", yytext);
@@ -218,23 +217,20 @@ yyidentifier(YYSTYPE *lvalp, amd_parse_param_t *param)
 		lvalp->number = 0;
 		lvp = hv_fetch(amd_lvaltab, yytext, yyleng, FALSE);
 		if (lvp) {
-			lv = SvRV(*lvp);
-			*lvalp = *(INT2PTR(YYSTYPE *, SvIV(lv)));
+			*lvalp = *(INT2PTR(YYSTYPE *, SvIV(*lvp)));
 		}
 
 		return SvIV(*svp);
 	}
 
 	/* Throw the thing in some sort of hash table so we get an SV? */
-	/* XXX It would be more efficient to set TRUE here. */
 	svp = hv_fetch(param->symtab, yytext, yyleng, FALSE);
 	if (svp) {
 		sv = *svp;
 	}
 	else {
 		sv = newSVpv(yytext, yyleng);
-		hv_store(param->symtab,
-			yytext, yyleng, sv, 0);
+		hv_store(param->symtab, yytext, yyleng, sv, 0);
 	}
 
 	lvalp->sv = sv;

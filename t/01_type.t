@@ -49,3 +49,10 @@ ok(T_STRING->unify(T_INTEGER)->equals(T_UNKNOWN), 'U(s, i) = ?');
 
 # print $t->dump . "->unify(" . $u->dump . ") = " . $t->unify($u)->dump, "\n";
 ok($t->unify($u)->dump eq '{si{s}}', 'Complex class unification');
+
+if (0) {
+	$t = new Anarres::Mud::Driver::Compiler::Type("*s");
+	$u = new Anarres::Mud::Driver::Compiler::Type("**s");
+	print $t->unify($u)->dump;
+	print $u->unify($t)->dump;
+}

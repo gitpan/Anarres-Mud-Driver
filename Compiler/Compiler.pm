@@ -10,6 +10,12 @@ require DynaLoader;
 $VERSION = 0.10;
 @ISA = qw(DynaLoader);
 
+use Anarres::Mud::Driver::Compiler::Type;
+use Anarres::Mud::Driver::Compiler::Node;
+use Anarres::Mud::Driver::Compiler::Dump;
+use Anarres::Mud::Driver::Compiler::Check;
+use Anarres::Mud::Driver::Compiler::Generate;
+
 bootstrap Anarres::Mud::Driver::Compiler;
 
 sub compile {

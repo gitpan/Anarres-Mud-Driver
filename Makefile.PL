@@ -19,3 +19,19 @@ WriteMakefile(
 	DIR				=> [ qw(lib Type Efun Compiler Interpreter) ],
 	OPTIMIZE		=> '-O2 -g -Wall',
 );
+
+sub MY::postamble {
+	my $self = shift;
+	my $old = $self->MM::postamble(@_);
+	chomp($old);
+
+	my $new = <<'EON';
+
+.PHONY : readme
+
+readme : lib/Driver.pm
+	perldoc -t lib/Driver.pm > README
+
+EON
+	return $old . $new;
+}

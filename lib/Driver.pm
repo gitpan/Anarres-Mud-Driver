@@ -9,7 +9,7 @@ BEGIN {
 	use vars qw($VERSION @ISA @EXPORT_OK %EXPORT_TAGS);
 	use Exporter;
 
-	$VERSION     = '0.24';
+	$VERSION     = '0.25';
 	@ISA         = qw(Exporter);
 	@EXPORT_OK   = ();
 	%EXPORT_TAGS = ();
@@ -38,10 +38,9 @@ emulation for a full 'C' style switch statement in Perl.
 
 =head1 USAGE
 
-The system is developer only, execute the file test.pl in the Driver
-subdirectory to test the system. Please note that the file 'parsetree'
-is a serialised parse tree on disk, since Yapp is very slow (it takes
-about 3 minutes to parse my test source file).
+The system is developer only and the interface changes quite rapidly.
+A good place to start is probably reading the test files. For more
+information, see 'SUPPORT' below.
 
 =head1 BUGS
 
@@ -76,5 +75,3 @@ perl(1).
 
 1;
 __END__
-
-

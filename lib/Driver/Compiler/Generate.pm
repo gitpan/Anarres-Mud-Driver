@@ -48,7 +48,6 @@ my %OPCODETABLE = (
 	# DConway says this tells us if it's an int:
 	# ($s_ref eq "" && defined $s_val && (~$s_val&$s_val) eq 0)
 
-	ExpNull			=> '',
 	StmtNull		=> '',
 
 	Nil				=> 'undef',
@@ -324,6 +323,13 @@ sub generate ($) {
 }
 
 {
+	package Anarres::Mud::Driver::Compiler::Node::VarStatic;
+	sub generate {
+		return '$_S_' . $_[0]->value(0);
+	}
+}
+
+{
 	package Anarres::Mud::Driver::Compiler::Node::Parameter;
 	sub generate { '$_[' . $_[0]->value(0) . ']' }
 }
@@ -398,7 +404,7 @@ sub generate ($) {
 		# But that would not necessarily amount to an optimisation.
 		# A better question might be, "Is it elementary?"
 		# (VarLocal or VarGlobal)
-		if (ref($val) =~ /::Var(Loc|Glob)al$/ || ($val->flags)&F_CONST) {
+		if (ref($val) =~ /::Var(Local|Global|Static)$/ || ($val->flags)&F_CONST) {
 			return $self->generate_cst(@_);
 		}
 		else {

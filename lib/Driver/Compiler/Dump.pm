@@ -1,4 +1,4 @@
-package Anarres::Mud::Driver::Compiler::Node;
+package Anarres::Mud::Driver::Compiler::Dump;
 
 use strict;
 use Carp qw(:DEFAULT cluck);
@@ -6,6 +6,8 @@ use Exporter;
 use Data::Dumper;
 use Anarres::Mud::Driver::Compiler::Type;
 use Anarres::Mud::Driver::Compiler::Node qw(@NODETYPES);
+
+push(@Anarres::Mud::Driver::Compiler::Node::ISA, __PACKAGE__);
 
 sub nodetype {
 	(my $name = (ref($_[0]) || $_[0])) =~ s/.*:://;

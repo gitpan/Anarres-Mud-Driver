@@ -1,7 +1,7 @@
 package Anarres::Mud::Driver::Compiler::Check;
 
 use strict;
-use vars qw(@ISA @EXPORT_OK %OPTYPETABLE %OPCHECKTABLE);
+use vars qw(@ISA @EXPORT_OK %OPTYPETABLE %NEWOPTYPETABLE %OPCHECKTABLE);
 use Carp qw(:DEFAULT cluck);
 use Data::Dumper;
 use Anarres::Mud::Driver::Compiler::Type;
@@ -9,11 +9,60 @@ use Anarres::Mud::Driver::Compiler::Node qw(:all);
 
 push(@Anarres::Mud::Driver::Compiler::Node::ISA, __PACKAGE__);
 
+%NEWOPTYPETABLE = (
+	StmtNull	=> [								   T_VOID ],
+
+	Unot		=> [ T_UNKNOWN						=> T_BOOL ],
+	Tilde		=> [ T_INTEGER						=> T_INTEGER ],
+	Plus		=> [ T_INTEGER						=> T_INTEGER ],
+	Minus		=> [ T_INTEGER						=> T_INTEGER ],
+
+	IntLsh		=> [ T_INTEGER, T_INTEGER			=> T_INTEGER ],
+	IntRsh		=> [ T_INTEGER, T_INTEGER			=> T_INTEGER ],
+	IntAdd		=> [ T_INTEGER, T_INTEGER			=> T_INTEGER ],
+	IntSub		=> [ T_INTEGER, T_INTEGER			=> T_INTEGER ],
+	IntMul		=> [ T_INTEGER, T_INTEGER			=> T_INTEGER ],
+	IntDiv		=> [ T_INTEGER, T_INTEGER			=> T_INTEGER ],
+	IntMod		=> [ T_INTEGER, T_INTEGER			=> T_INTEGER ],
+
+	IntAnd		=> [ T_INTEGER, T_INTEGER			=> T_INTEGER ],
+	IntOr		=> [ T_INTEGER, T_INTEGER			=> T_INTEGER ],
+	IntXor		=> [ T_INTEGER, T_INTEGER			=> T_INTEGER ],
+
+	IntEq		=> [ T_INTEGER, T_INTEGER			=> T_BOOL ],
+	IntNe		=> [ T_INTEGER, T_INTEGER			=> T_BOOL ],
+	IntGe		=> [ T_INTEGER, T_INTEGER			=> T_BOOL ],
+	IntLe		=> [ T_INTEGER, T_INTEGER			=> T_BOOL ],
+	IntGt		=> [ T_INTEGER, T_INTEGER			=> T_BOOL ],
+	IntLt		=> [ T_INTEGER, T_INTEGER			=> T_BOOL ],
+
+
+	StrAdd		=> [ T_STRING, T_STRING				=> T_STRING ],
+	StrMul		=> [ T_STRING, T_STRING				=> T_STRING ],
+
+	StrEq		=> [ T_STRING, T_STRING				=> T_BOOL ],
+	StrNe		=> [ T_STRING, T_STRING				=> T_BOOL ],
+	StrGe		=> [ T_STRING, T_STRING				=> T_BOOL ],
+	StrLe		=> [ T_STRING, T_STRING				=> T_BOOL ],
+	StrGt		=> [ T_STRING, T_STRING				=> T_BOOL ],
+	StrLt		=> [ T_STRING, T_STRING				=> T_BOOL ],
+
+	StmtExp		=> [ T_UNKNOWN						=> T_VOID  ],
+	StmtRlimits => [ T_INTEGER, T_INTEGER, T_VOID	=> T_VOID ],
+	StmtCatch	=> [ T_VOID							=> T_VOID ],
+
+		# Sub?
+	StmtIfElse	=> [ T_BOOL, T_VOID, T_VOID			=> T_VOID ],
+	StmtIf		=> [ T_BOOL, T_VOID					=> T_VOID ],
+
+	StmtBreak	=> [								   T_VOID ],
+	StmtContinue=> [								   T_VOID ],
+);
+
 # nodepackage, rettype, arg0type, arg1type, ...
 %OPTYPETABLE = (
 	# Postinc Postdec Preinc Predec
 
-	ExpNull		=> [[ 'ExpNull', T_VOID, ], ],	# T_NIL?
 	StmtNull	=> [[ 'StmtNull', T_VOID, ], ],
 
 	# IntAssert StrAssert ArrAssert MapAssert ClsAssert ObjAssert
@@ -149,13 +198,13 @@ push(@Anarres::Mud::Driver::Compiler::Node::ISA, __PACKAGE__);
 				MapEq MapNe
 				MapIndex
 
-				VarGlobal VarLocal
+				VarStatic VarGlobal VarLocal
 					),
 		);
 
 %OPCHECKTABLE = (
 	Integer		=> {
-			Const	=> "1;",		# *const = eval qq{ sub { $_ }; };
+			Const	=> "1",		# *const = eval qq{ sub { $_ }; };
 				},
 );
 
@@ -175,19 +224,62 @@ sub constp { undef; }
 sub promote_to_block {
 	my ($self, $index) = @_;
 	my $stmt = $self->value($index);
-	unless (ref($stmt) =~ /::Block$/) {
-		confess "Can only convert statements into blocks, not $stmt"
-						unless ref($stmt) =~ /::Stmt\w+$/;
-		# It's a statement.
-		my $block = new Anarres::Mud::Driver::Compiler::Node::Block(
-						[],	# locals
-						[ $stmt ]);
-		$self->setvalue($index, $block);
+
+	return if ref($stmt) =~ /::Block$/;
+	confess "Can only convert statements into blocks, not $stmt"
+					unless ref($stmt) =~ /::Stmt\w+$/;
+
+	# It's a statement.
+	my $block = new Anarres::Mud::Driver::Compiler::Node::Block(
+					[],	# locals
+					[ $stmt ]);
+	$self->setvalue($index, $block);
+}
+
+sub convert {
+	my ($self, $opcode) = @_;
+
+	$self->debug(DBG_TC_NAME, "Attempt convert " . $self->nodetype .
+					" to " . $opcode);
+
+	my @values = $self->values;
+	my @template = @{ $NEWOPTYPETABLE{$opcode} };
+	my $rettype = pop(@template);
+
+	return undef unless @values == @template;
+
+	my $i = 0;
+	my @tvals = ();
+	foreach my $type (@template) {
+		my $val = $values[$i];
+		# XXX I should promote unknown to anything via assert, not
+		# assert directly in convert.
+		if ($val->type->equals(T_UNKNOWN)) {
+			push(@tvals, $val->assert($type));
+			next;
+		}
+		my $tval = $val->promote($type);
+		return undef unless $tval;
+		push(@tvals, $tval);
 	}
+
+	# Hack the node gratuitously.
+	splice(@$self, 2, $#$self, @tvals);
+	$self->settype($rettype);
+
+	# We might also have a package change.
+	my $package = ref($self);
+	$package =~ s/::[^:]*$/::$opcode/;
+	bless $self, $package;
+
+	return $self;
 }
 
 sub assert {	# This sucks somewhat
 	my ($self, $type) = @_;
+	if (!$self->type->equals(T_UNKNOWN)) {	# DEBUGGING
+		confess "Asserting something of known type.";
+	}
 	print "Asserting " . $self->nodetype . " into " . ${$type} . "\n";
 	return $self;
 
@@ -364,6 +456,9 @@ OPTYPE:
 			" in\n" . $self->dump);
 	return $self->check_fail;
 }
+# End of 'sub check'
+
+# Now the node-specific packages.
 
 {
 	package Anarres::Mud::Driver::Compiler::Node::Nil;
@@ -431,10 +526,6 @@ OPTYPE:
 		my $type = T_NIL;
 		my $idx = 0;
 		foreach (@values) {
-			unless (ref($_) =~ /::/) {
-				print STDERR "@$_\n";
-				die "Child is not an object";
-			}
 			# Search the types to find a good type.
 			if ($idx & 1) {
 				$type = $_->type->unify($type);
@@ -487,6 +578,9 @@ OPTYPE:
 		elsif ($var = $program->global($name)) {
 			$class = 'Anarres::Mud::Driver::Compiler::Node::VarGlobal';
 		}
+		# elsif ($var = $program->static($name)) {
+		#	$class ='Anarres::Mud::Driver::Compiler::Node::VarStatic';
+		# }
 		else {
 			$program->error("Variable $name not found");
 			# XXX We should fake something up because we end up
@@ -504,8 +598,8 @@ OPTYPE:
 
 {
 	package Anarres::Mud::Driver::Compiler::Node::Parameter;
+	sub lvaluep { 1; }
 	# XXX We could look this up at the current point ...
-	# sub infer { $_[0]->assert($_[1]) }	# XXX As an rvalue?
 	sub check { $_[0]->settype(T_UNKNOWN); return 1; }	# XXX Do this!
 }
 
@@ -684,8 +778,12 @@ OPTYPE:
 
 	# XXX Do this!
 	sub check {
-		my ($self, $program, $flags, @rest) = @_;
-		# Use class_field_type
+		my ($self, $program, @rest) = @_;
+		$self->debug(DBG_TC_NAME, "Typechecking Member");
+		my ($value, $field) = $self->values;
+		$self->check_children([ $value ], $program, @rest)
+						or return $self->check_fail;
+		# my $type = $program->class_field_type(
 		$self->settype(T_FAILED);
 		return 1;
 	}
@@ -693,10 +791,12 @@ OPTYPE:
 
 {
 	package Anarres::Mud::Driver::Compiler::Node::New;
-	# XXX Do this!
 	sub check {
 		my ($self, $program, $flags, @rest) = @_;
-		$self->settype(T_FAILED);
+		$self->debug(DBG_TC_NAME, "Typechecking New");
+		my $cname = $self->value(0);
+		my $type = $program->class_type($cname);
+		$self->settype($type);	# Might be T_FAILED
 		return 1;
 	}
 }
@@ -784,7 +884,7 @@ foreach ( qw(Postinc Postdec Preinc Predec) ) {
 		}
 		unless ($exp->check($program, $flags, @rest)) {
 			$program->error("Failed to typecheck rvalue to assign");
-			return $self->check_fail;
+			return $self->check_fail($lval->type);
 		}
 
 		my $rval = $exp->promote($lval->type);
@@ -794,7 +894,8 @@ foreach ( qw(Postinc Postdec Preinc Predec) ) {
 			$program->error("Cannot assign type " .
 							$exp->type->dump . " to lvalue " .
 							$dump ." of type ". $lval->type->dump);
-			return $self->check_fail;
+			# Assign always takes the type of the lvalue.
+			return $self->check_fail($lval->type);
 		}
 
 		# Perhaps this ought to be the more specific of the two types.
@@ -1213,12 +1314,15 @@ if (1) {
 	$package =~ s/::Check$/::Node/;
 	no strict qw(refs);
 	my @missing;
+	my @default;
 	foreach (@NODETYPES) {
+		push(@default, $_) if defined $OPTYPETABLE{$_};
 		next if defined $OPTYPETABLE{$_};
 		next if defined &{ "$package\::$_\::check" };
 		push(@missing, $_);
 	}
 	print "No check in @missing\n" if @missing;
+	print "Default check in @default\n" if @default;
 }
 
 1;

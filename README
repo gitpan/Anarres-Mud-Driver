@@ -17,10 +17,9 @@ DESCRIPTION
     for a full 'C' style switch statement in Perl.
 
 USAGE
-    The system is developer only, execute the file test.pl in the Driver
-    subdirectory to test the system. Please note that the file 'parsetree'
-    is a serialised parse tree on disk, since Yapp is very slow (it takes
-    about 3 minutes to parse my test source file).
+    The system is developer only and the interface changes quite rapidly. A
+    good place to start is probably reading the test files. For more
+    information, see 'SUPPORT' below.
 
 BUGS
     Incomplete. Experimental. Probably broken.

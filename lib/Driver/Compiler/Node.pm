@@ -8,7 +8,6 @@ use vars qw(@ISA @EXPORT_OK %EXPORT_TAGS
 				$DEBUG
 				);
 use Exporter;
-# use Anarres::Mud::Driver::Compiler::Type;
 
 sub DBG_TC_NAME		() { 1 }
 sub DBG_TC_ALIAS	() { 2 }
@@ -26,10 +25,10 @@ BEGIN {	# Does this still have to be a BEGIN?
 # type coercion/promotion, rather than an Assert node which just
 # does a runtime type check.
 
-	# XXX ExpNull should never happen. Remove it.
+	# We can't read these out of <DATA> at BEGIN-time.
 
 	@NODETYPES = qw(
-		ExpNull StmtNull
+		StmtNull
 
 		ExpComma
 
@@ -38,7 +37,7 @@ BEGIN {	# Does this still have to be a BEGIN?
 		Nil String Integer Array Mapping Closure
 		Variable Parameter Funcall CallOther
 
-		VarGlobal VarLocal
+		VarStatic VarGlobal VarLocal
 
 		Index Range Member New
 
@@ -81,7 +80,7 @@ BEGIN {	# Does this still have to be a BEGIN?
 		ExpCond Assign Block StmtExp
 		StmtDo StmtWhile StmtFor StmtForeach
 		StmtRlimits StmtTry StmtCatch
-		StmtIf StmtSwitch StmtCase StmtDefault
+		StmtIf StmtIfElse StmtSwitch StmtCase StmtDefault
 		StmtBreak StmtContinue StmtReturn
 			);
 
@@ -107,7 +106,7 @@ $DEBUG = 0;
 
 # Now that we have set up the Node packages, we can do this:
 
-use Anarres::Mud::Driver::Compiler::Dump;
+# use Anarres::Mud::Driver::Compiler::Dump;
 # use Anarres::Mud::Driver::Compiler::Check;
 # use Anarres::Mud::Driver::Compiler::Generate;
 

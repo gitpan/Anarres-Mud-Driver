@@ -2,7 +2,7 @@ package Anarres::Mud::Driver::Compiler::Type;
 
 use strict;
 use warnings;
-use vars qw($VERSION @ISA @EXPORT);
+use vars qw($VERSION @ISA @EXPORT %TYPENAMES);
 use Exporter;
 
 BEGIN {
@@ -75,10 +75,23 @@ sub promote {
 	# We might be promoted to a less specific type.
 	# This routine must return a typechecked object.
 	if ($$self ne $$type) {
-		print "Promoting " . sprintf("%-20.20s", $node->nodetype) .
-						" from $$self to $$type\n";
+#		print "Promoting " . sprintf("%-20.20s", $node->nodetype) .
+#						" from $$self to $$type\n";
 	}
 	return $node;	# XXX do something here!
+}
+
+sub name {
+	my ($self) = shift;
+	my $code = $$self;
+	my $out = "";
+	while (length $code) {
+		$out .= "mapping of " if $code =~ s/^#//;
+		$out .= "pointer to " if $code =~ s/^\*//;
+		return $out . "integer" if $code eq 'i';
+		return $out . "string" if $code eq 's';
+	}
+	return $out;
 }
 
 1;

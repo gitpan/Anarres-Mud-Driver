@@ -48,6 +48,7 @@ sub new {
 	$self->{PerlGlobals} = [ ];
 
 	$self->{Inherits} = { };
+	$self->{Statics} = { };
 	$self->{Globals} = { };
 	$self->{Locals} = { };
 	$self->{Labels} = { };
@@ -65,7 +66,8 @@ sub new {
 
 	$self->{Closures} = [ ];
 
-	$self->{Classes} = { };
+	$self->{ClassesByName} = { };
+	$self->{ClassesByType} = { };
 
 	return bless $self, $class;
 }
@@ -225,35 +227,37 @@ sub restore_locals {
 
 sub local {
 	my ($self, $name, $var) = @_;
-
 	# print STDERR "local($name, $var)\n";
-
 	return $self->{Locals}->{$name} unless $var;
-
 	$self->warning("Local $name masks previous definition")
-			if $self->{Locals}->{$name};
-
+			if $self->{Locals}->{$name}
+			|| $self->{Globals}->{$name}
+			|| $self->{Statics}->{$name};
 	# print "Storing local variable " . $var->dump . "\n";
-
 	$self->{Locals}->{$name} = $var;
-
 	return ();
 }
 
 sub global {
 	my ($self, $name, $var) = @_;
-
 	# print STDERR "global($name, $var)\n";
-
 	return $self->{Globals}->{$name} unless $var;
-
 	$self->error("Global $name masks previous definition in file XXX")
-			if $self->{Globals}->{$name};
-
+			if $self->{Globals}->{$name}
+			|| $self->{Statics}->{$name};
 	# print "Storing variable $name\n";
-
 	$self->{Globals}->{$name} = $var;
+	return ();
+}
 
+sub static {
+	my ($self, $name, $var) = @_;
+	# print STDERR "static($name, $var)\n";
+	return $self->{Statics}->{$name} unless $var;
+	$self->error("Static $name masks previous definition in file XXX")
+			if $self->{Statics}->{$name};
+	# print "Storing variable $name\n";
+	$self->{Statics}->{$name} = $var;
 	return ();
 }
 
@@ -334,30 +338,42 @@ sub class {
 
 	unless ($fields) {
 		# Search for the class; return a valid type for it.
-		my $class = $self->{Classes}->{$cname};
+		my $class = $self->{ClassesByName}->{$cname};
 		return $class if $class;
 		$self->error("No class named $cname");
 		return undef;
 	}
 
-	my $type = map { ${ $_->type } } @$fields;
-
 	my %class;
+	my @types;
 	foreach (@$fields) {
 		my $name = $_->name;
+		my $type = $_->type;
+		push(@types, $type);
+
 		if ($class{$name}) {
 			$self->error("Field name $name multiply defined in class " .
 							$cname);
 			next;
 		}
-		$class{$name} = $_->type;
+		$class{$name} = $type;
 	}
 
-	$self->{Classes}->{$cname} = {
+	my $type = T_CLASS(@types);
+
+	$self->{ClassesByName}->{$cname} = {
 					Data	=> $fields,
 					Fields	=> \%class,
-					Type	=> T_UNKNOWN,
+					Type	=> $type,
 						};
+
+# Can I avoid doing this?
+#	foreach (@$fields) {
+#		$self->{ClassesByType}->{$$type . $_->name} = $_->type;
+#	}
+
+	# print Dumper($fields);
+	# print STDERR "New class type is " . $$type . "\n";
 
 	return 1;
 }
@@ -366,7 +382,10 @@ sub class_type {
 	my ($self, $cname) = @_;
 
 	my $class = $self->class($cname);
-	return T_UNKNOWN unless $class;
+	unless ($class) {
+		$self->error("No such class $cname");
+		return T_FAILED;
+	}
 
 	return $class->{Type};
 }
@@ -375,11 +394,15 @@ sub class_field_type {
 	my ($self, $cname, $fname) = @_;
 
 	my $class = $self->class($cname);
-	return T_UNKNOWN unless $class;
+	unless ($class) {
+		$self->error("No such class $cname");
+		return T_FAILED;
+	}
+
 	my $ftype = $class->{Fields}->{$fname};
 	unless ($ftype) {
 		$self->error("No such field $fname in class $cname");
-		return T_UNKNOWN;
+		return T_FAILED;
 	}
 
 	return $ftype;

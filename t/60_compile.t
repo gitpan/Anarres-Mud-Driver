@@ -4,7 +4,11 @@ use strict;
 use warnings;
 use Devel::Peek;
 use Data::Dumper;
-use Test::More tests => 4;	# 7
+
+my ($source, $local);
+BEGIN { $source = 'local/test.C'; $local = -r $source; }
+
+use Test::More tests => ($local ? 9 : 4);
 
 select STDERR;
 $|++;
@@ -20,17 +24,15 @@ use_ok('Anarres::Mud::Driver::Efun::Core');
 my $compiler = new Anarres::Mud::Driver::Compiler;
 ok(defined($compiler), 'We constructed a compiler');
 
-exit;
+exit unless $local;
 
-my $program = $compiler->compile("local/test.C");
+my $program = $compiler->compile($source);
 ok(defined($program), 'Got a return value from compile() ...');
 ok(ref($program) =~ m/::Program$/, '... which looks like a program');
 
 # print $program->dump;
 
 ok($program->dump, 'Program appears to dump');
-
-exit;
 
 my $ch;
 eval {
@@ -45,5 +47,3 @@ ok($program->dump, 'Program still appears to dump');
 # print Dumper($program);
 
 print $program->dump, "\n";
-
-

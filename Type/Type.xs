@@ -41,6 +41,8 @@ amd_type_new(const char *str)
 	if (svp)
 		return *svp;
 
+	// fprintf(stderr, "Creating new type %s\n", str);
+
 	sv = newSVpvn(str, len);
 	bsv = sv_bless(
 			newRV_noinc(sv),
@@ -180,17 +182,19 @@ compatible(self, arg)
 					XSRETURN_YES;
 				}
 #if 0
+				/* Don't use this if we have class naming: Everything
+				 * breaks. */
 				else if (*self == C_M_ENDCLASS) {
 					int	 depth;
 					/* We can just drop the rest of the input data */
 					self++;
 					arg++;
-					depth = 0;
-					while (depth > -1) {
-						if (*arg == C_M_BEGINCLASS)
-							depth++;
-						else if (*arg == C_M_ENDCLASS)
+					depth = 1;
+					while (depth > 0) {
+						if (*arg == C_M_ENDCLASS)
 							depth--;
+						else if (*arg == C_M_BEGINCLASS)
+							depth++;
 						arg++;
 					}
 				}

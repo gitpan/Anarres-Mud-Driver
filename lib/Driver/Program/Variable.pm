@@ -2,7 +2,6 @@ package Anarres::Mud::Driver::Program::Variable;
 
 use strict;
 use vars qw(@ISA);
-# use overload '""' => sub { "AMD::Variable(" . $_[0]->name . ")" };
 use Exporter;
 
 @ISA = qw(Exporter);
@@ -25,10 +24,7 @@ sub flags { return $_[0]->{Flags}; }
 
 sub dump {
 	my $self = shift;
-
-	# XXX No types
 	return "([" . $self->type->dump(@_) . "] var " . $self->name . ")";
-	# return "(var " . $self->name . ")";
 }
 
 1;

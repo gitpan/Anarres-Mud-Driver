@@ -60,14 +60,13 @@ yyparse_node(char *type,
 	int		 count;
 	SV		*node;
 	char	 buf[512];
-	char	*ep;
 	SV		*class;
 	SV		**svp;
 	int		 len;
 	int		 i;
 
-	ep = stpcpy(buf, _AMD "::Compiler::Node::");
-	strcpy(ep, type);
+	strcpy(buf, _AMD "::Compiler::Node::");
+	strcat(buf, type);
 	class = sv_2mortal(newSVpv(buf, 0));
 
 	ENTER;
@@ -125,8 +124,12 @@ yyparse_type(const char *type, SV *stars)
 		class = newSVpv(_AMD "::Compiler::Type", 0);
 	}
 
-	sv = newSVpv(type, 0);
-	sv_catsv(sv, stars);
+	// fprintf(stderr, "Type is %s, stars is %s\n", type, SvPV_nolen(stars));
+
+	/* XXX It's quite likely that we own the only ref to 'stars' here.
+	 */
+	sv = newSVsv(stars);
+	sv_catpv(sv, type);
 
 	ENTER;
 	SAVETMPS;
@@ -139,7 +142,7 @@ yyparse_type(const char *type, SV *stars)
 	count = call_method("new", G_SCALAR);
 	SPAGAIN;
 	if (count != 1)
-		croak("Didn't get a return value from constructing Variable\n");
+		croak("Didn't get a return value from constructing Type\n");
 	node = POPs;
 	PUTBACK;
 
@@ -469,7 +472,7 @@ definition
 inheritance
 		: L_INHERIT string_const ';'
 		{
-			printf("Inheriting %s\n", SvPVX($2));
+			/* printf("Inheriting %s\n", SvPVX($2)); */
 			SvREFCNT_dec(
 				yyparse_program_apply(yyparse_param,
 						"inherit", &PL_sv_undef, $2));
@@ -627,6 +630,7 @@ statement
 		}
 		| L_IF '(' nv_list_exp ')' statement opt_else
 		{
+			/* if ($6 == &PL_sv_undef) - use StmtIfElse */
 			$$ = N_A3("StmtIf", $3, $5, $6);
 		}
 		| L_DO statement L_WHILE '(' nv_list_exp ')' ';'
@@ -1146,7 +1150,7 @@ basic_exp
 		{
 			$$ = N_A1("Parameter", newSViv($1));
 		}
-		| '$' '(' identifier ')'
+		| '$' '(' list_exp ')'
 		{
 			$$ = N_A1("Parameter", $3);
 		}
@@ -1218,16 +1222,24 @@ global_decl
 				/* The AV returned from variable_declarator */
 				vd = (AV *)SvRV(*svp);
 
-				// amd_peek("variable_declarator_init", vdp);
-
 				/* These two should be guaranteed dereferencable */
 				stars = *( av_fetch(vd, 0, FALSE) );
 				name = *( av_fetch(vd, 1, FALSE) );
 				var = yyparse_variable(name, type, stars, newSViv($1));
 
-				SvREFCNT_dec(
-					yyparse_program_apply(yyparse_param,
-									"global", name, var));
+				/* XXX Check global modifiers, and possibly make these
+				 * variables static. */
+
+				if ($1 & M_STATIC) {
+					SvREFCNT_dec(
+						yyparse_program_apply(yyparse_param,
+										"static", name, var));
+				}
+				else {
+					SvREFCNT_dec(
+						yyparse_program_apply(yyparse_param,
+										"global", name, var));
+				}
 			}
 
 			/* See local_decl for memory management notes. */
@@ -1453,23 +1465,24 @@ type_specifier
 		}
 		| L_CLASS identifier
 		{
-			/* XXX FIXME
-			$$ = yyparse_program_apply(yyparse_param,
-								"class_type", $2, &PL_sv_undef);
-			*/
+			// $$ = "{}";
 			/* As long as I don't free the underlying SV,
 			 * I could just use SvPV here. We can't free the
 			 * original type since it'll be in the type cache.
 			 * Don't free the type cache while in the parser.
 			 * Do the apply, then call SvPV_nolen(SvRV(x)) on it.
 			 */
-			$$ = "${}";
+			SV	*ct;
+			ct = yyparse_program_apply(yyparse_param,
+								"class_type", $2, &PL_sv_undef);
+			$$ = SvPV_nolen(SvRV(ct));
 		}
 	;
 
 star_list
 		:	/* empty */
 		{
+			/* Work on using PL_sv_undef here instead. */
 			$$ = newSVpv("", 0);;
 		}
 		| star_list '*'
@@ -1478,7 +1491,7 @@ star_list
 			char	*v;
 
 			v = SvPV($1, len);
-			sv_setpv($1, "#");
+			sv_setpv($1, "*");
 			sv_catpvn($1, v, len);
 
 			$$ = $1;

@@ -24,8 +24,6 @@ struct _keyword_t
 keyword_t;
 
 #define LVAL_NONE		{ .number = 0 }
-#define LVAL_S1(x)		{ .str = { x, 0 } }
-#define LVAL_S2(x, y)	{ .str = { x, y, 0 } }
 
 	/* We have to allocate static storage for all of these. */
 static const char LVAL_BOOL[] = { C_BOOL, 0 };
@@ -53,7 +51,7 @@ static keyword_t keywords[] = {
 	{ "if",			L_IF,				LVAL_NONE },
 	{ "in",			L_IN,				LVAL_NONE },
 	{ "inherit",	L_INHERIT,			LVAL_NONE },
-	{ "int",		L_BASIC_TYPE,		{ .str = LVAL_CLOSURE } },
+	{ "int",		L_BASIC_TYPE,		{ .str = LVAL_INTEGER } },
 	{ "mapping",	L_BASIC_TYPE,		{ .str = LVAL_MAPPING } },
 	{ "mixed",		L_BASIC_TYPE,		{ .str = LVAL_UNKNOWN } },
 	{ "nil",		L_NIL,				LVAL_NONE },
@@ -84,7 +82,6 @@ BOOT:
 {
 	{
 		SV			*sv;
-		SV			*pv;
 		int			 size;
 		int			 i;
 
@@ -101,10 +98,9 @@ BOOT:
 				newSViv(keywords[i].token), 0);
 			if (keywords[i].lval.number) {
 				sv = newSViv(PTR2IV((void *)(&keywords[i].lval) ));
-				pv = newRV_noinc(sv);
 				hv_store(amd_lvaltab,
 					keywords[i].keyword, strlen(keywords[i].keyword),
-					pv, 0);
+					sv, 0);
 			}
 		}
 	}

@@ -25,7 +25,7 @@ sub code {
 
 sub check {
 	my ($self, $program, @rest) = @_;
-	print "Typechecking method " . $self->name . " (top level)\n";
+	# print "Typechecking method " . $self->name . " (top level)\n";
 	# print $self->dump, "\n";
 
 	# Start adding locals, etc, etc.
@@ -123,17 +123,17 @@ sub typecheck_call {
 	}
 
 	my $i = 1;
-	foreach (@args) {
+	foreach my $decl (@args) {
 		my $val = $values->[$i];
-		# print "Matching arg against " . $_->dump . "\n";
-		my $arg = $val->promote($_->type);
+		# print "Matching arg " . $val->dump . " against " . $decl->dump . "\n";
+		my $arg = $val->promote($decl->type);
 		if (! $arg) {
 			$program->error("Argument $i to " . $self->name .
 							" is type " . ${ $val->type } .
-							" not type " . ${ $_->type });
+							" not type " . ${ $decl->type });
 		}
 		elsif ($arg != $val) {
-			$arg->typecheck($program, undef, @rest);
+			$arg->check($program, undef, @rest);
 			$values->[$i] = $arg;
 		}
 		# print "OK\n";
